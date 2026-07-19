@@ -1,8 +1,67 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f4ead7;
+  --foreground: #3f2a1d;
+
+  --house-wall: #f4ead7;
+  --house-ink: #3f2a1d;
+  --house-ink-muted: #76563f;
+  --house-paper: #fff7e8;
+  --house-wood-light: #e6c18a;
+  --house-wood-mid: #b97845;
+  --house-wood-dark: #6d4228;
+  --house-brass: #b8893f;
+  --house-glass: rgba(238, 245, 239, 0.52);
+
+  --state-focus: #126f78;
+  --state-success: #4f7f5a;
+  --state-danger: #a84943;
+
+  --room-music: #e9bd67;
+  --room-story: #d98fa3;
+  --room-cs: #78b7b0;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 18px;
+  --space-5: 28px;
+  --space-6: 44px;
+
+  --radius-detail: 2px;
+  --radius-object: 5px;
+  --radius-control: 10px;
+  --radius-round: 999px;
+
+  --shadow-contact: 0 2px 0 rgba(63, 42, 29, 0.18);
+  --shadow-raised: 4px 8px 18px rgba(63, 42, 29, 0.16);
+  --shadow-deep: 10px 20px 44px rgba(45, 29, 19, 0.24);
+
+  --duration-fast: 140ms;
+  --duration-object: 220ms;
+  --duration-room: 420ms;
+  --ease-object: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-room: cubic-bezier(0.22, 0.7, 0.2, 1);
+
+  --z-scene: 0;
+  --z-object: 10;
+  --z-control: 100;
+  --z-overlay: 200;
+  --z-dialog: 210;
+
+  --font-display: ui-serif, Georgia, "Noto Serif SC", "Songti SC", serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  --font-label: var(--font-body);
+  --font-geist-sans: var(--font-body);
+  --font-geist-mono: "Courier New", Courier, monospace;
+
+  --control-safe-top: max(18px, env(safe-area-inset-top));
+  --control-safe-right: max(18px, env(safe-area-inset-right));
+  --control-safe-bottom: max(18px, env(safe-area-inset-bottom));
+  --control-safe-left: max(18px, env(safe-area-inset-left));
+  --control-stack-step: 76px;
 }
 
 @theme inline {
@@ -12,15 +71,114 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  min-height: 100%;
+  background: var(--background);
 }
 
 body {
+  min-height: 100%;
+  margin: 0;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+:where(button, a[href], input, select, textarea, [role="button"]):focus-visible {
+  outline: 3px solid var(--state-focus) !important;
+  outline-offset: 3px !important;
+}
+
+:where(button, a[href], input, select, textarea, [role="button"]):focus:not(
+    :focus-visible
+  ) {
+  outline: none;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.house-control {
+  position: fixed !important;
+  z-index: var(--z-control) !important;
+  min-width: 44px;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.house-control--top-left {
+  top: var(--control-safe-top) !important;
+  left: var(--control-safe-left) !important;
+}
+
+.house-control--top-right-primary {
+  top: var(--control-safe-top) !important;
+  right: var(--control-safe-right) !important;
+}
+
+.house-control--top-right-secondary {
+  top: calc(var(--control-safe-top) + var(--control-stack-step)) !important;
+  right: var(--control-safe-right) !important;
+}
+
+.house-control--top-right-tertiary {
+  top: calc(var(--control-safe-top) + var(--control-stack-step) * 2) !important;
+  right: var(--control-safe-right) !important;
+}
+
+.house-control--bottom-left {
+  bottom: var(--control-safe-bottom) !important;
+  left: var(--control-safe-left) !important;
+}
+
+.house-control--bottom-right {
+  right: var(--control-safe-right) !important;
+  bottom: var(--control-safe-bottom) !important;
+}
+
+html[data-dialog-open="true"] .house-control {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+@media (max-width: 600px) {
+  :root {
+    --control-safe-top: max(14px, env(safe-area-inset-top));
+    --control-safe-right: max(14px, env(safe-area-inset-right));
+    --control-safe-bottom: max(14px, env(safe-area-inset-bottom));
+    --control-safe-left: max(14px, env(safe-area-inset-left));
+    --control-stack-step: 72px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:focus-within {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
 }

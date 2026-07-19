@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Blender sources and temporary exports
+*.blend
+*.blend[0-9]*
+*.blend@
+__pycache__/
+*.tmp
