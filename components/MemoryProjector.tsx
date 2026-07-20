@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import {
   useCallback,
   useEffect,
@@ -27,6 +28,7 @@ export default function MemoryProjector({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDragOverProjector, setIsDragOverProjector] = useState(false);
   const [pressedSlideIndex, setPressedSlideIndex] = useState<number | null>(null);
+  const [failedMediaIds, setFailedMediaIds] = useState<Set<string>>(new Set());
   const projectionRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const projectorTriggerRef = useRef<HTMLButtonElement>(null);
@@ -133,41 +135,38 @@ export default function MemoryProjector({
   }
 
   function renderProjectedMemory(memory: SongMemory) {
-    if (memory.type === "image" && memory.src) {
+    const failed = failedMediaIds.has(memory.id);
+    const markFailed = () => setFailedMediaIds((current) => new Set(current).add(memory.id));
+    if (memory.type === "image" && memory.src && !failed) {
       return (
-        <div
+        <Image
           className="projected-image"
-          style={{ backgroundImage: `url(${memory.src})` }}
-          role="img"
-          aria-label={memory.title[language]}
+          src={memory.src}
+          alt={memory.title[language]}
+          fill
+          sizes="(max-width: 760px) 88vw, 760px"
+          onError={markFailed}
         />
       );
     }
 
-    if (memory.type === "video") {
+    if (memory.type === "video" && memory.src && !failed) {
       return (
-        <div className="projected-note media-placeholder">
-          <span>{language === "en" ? "Video Slide" : "视频幻灯片"}</span>
-          <p>
-            {language === "en"
-              ? "A moving memory can live here in the next version."
-              : "下一版可以在这里播放一段动态记忆。"}
-          </p>
+        <video className="projected-media" controls preload="metadata" src={memory.src} onError={markFailed} />
+      );
+    }
+
+    if (memory.type === "audio" && memory.src && !failed) {
+      return (
+        <div className="projected-note">
+          <span>{memory.title[language]}</span>
+          <audio controls preload="metadata" src={memory.src} onError={markFailed} />
         </div>
       );
     }
 
-    if (memory.type === "audio") {
-      return (
-        <div className="projected-note media-placeholder">
-          <span>{language === "en" ? "Audio Slide" : "音频幻灯片"}</span>
-          <p>
-            {language === "en"
-              ? "A demo recording can live here in the next version."
-              : "下一版可以在这里播放一段 demo 或灵感录音。"}
-          </p>
-        </div>
-      );
+    if (failed || ((memory.type === "image" || memory.type === "audio" || memory.type === "video") && !memory.src)) {
+      return <div className="projected-note media-placeholder"><span>{language === "en" ? "Media unavailable" : "媒体无法加载"}</span><p>{memory.description[language]}</p></div>;
     }
 
     return (
@@ -564,6 +563,16 @@ export default function MemoryProjector({
           background-position: center;
           background-size: cover;
           filter: sepia(0.06) saturate(0.94) contrast(0.97);
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .projected-media {
+          width: 100%;
+          height: 100%;
+          background: #171717;
+          object-fit: contain;
         }
 
         .projected-note {

@@ -23,6 +23,7 @@ import PuzzleModal from "@/components/PuzzleModal";
 import { useSound } from "@/components/SoundProvider";
 import SoundToggle from "@/components/SoundToggle";
 import { roomIntros } from "@/data/roomIntros";
+import { SongsProvider } from "@/components/SongsProvider";
 
 const warmControlTheme = {
   color: "#5a321d",
@@ -35,7 +36,7 @@ const warmModeTheme = {
   mutedColor: "#7a533a",
 };
 
-export default function Home() {
+function HomeContent() {
   const { playUISound } = useSound();
   const [screen, setScreen] = useState<Screen>("entrance");
   const [mode, setMode] = useState<Mode>(null);
@@ -643,4 +644,8 @@ export default function Home() {
   }
 
   return null;
+}
+
+export default function Home() {
+  return <SongsProvider><HomeContent /></SongsProvider>;
 }

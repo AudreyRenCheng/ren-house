@@ -46,3 +46,8 @@ next-env.d.ts
 *.blend@
 __pycache__/
 *.tmp
+
+.dev.vars
+worker/.dev.vars
+worker/.wrangler/
+worker/.codex-tmp/

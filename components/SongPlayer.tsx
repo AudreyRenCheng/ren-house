@@ -13,7 +13,8 @@ import ContactInfo from "@/components/ContactInfo";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import MemoryProjector from "@/components/MemoryProjector";
 import { useSound } from "@/components/SoundProvider";
-import { songs } from "@/data/songs";
+import { useSongs } from "@/components/SongsProvider";
+import type { Song } from "@/types";
 import type { SongId, SiteLanguage } from "@/types";
 
 export default function SongPlayer({
@@ -31,6 +32,7 @@ export default function SongPlayer({
   showLyricTranslation: boolean;
   setShowLyricTranslation: Dispatch<SetStateAction<boolean>>;
 }) {
+  const songs = useSongs();
   const { playUISound } = useSound();
   const song = songs[currentSong];
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -39,6 +41,8 @@ export default function SongPlayer({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(0.8);
+  const [audioError, setAudioError] = useState("");
+  const [coverError, setCoverError] = useState(false);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -49,6 +53,8 @@ export default function SongPlayer({
     setIsPlaying(false);
     setCurrentTime(0);
     setDuration(Number.isFinite(audio.duration) ? audio.duration : 0);
+    setAudioError("");
+    setCoverError(false);
   }, [currentSong]);
 
   useEffect(() => {
@@ -69,7 +75,17 @@ export default function SongPlayer({
     if (!audio) return;
 
     if (audio.paused) {
-      await audio.play();
+      try {
+        await audio.play();
+        setAudioError("");
+      } catch {
+        setIsPlaying(false);
+        setAudioError(
+          language === "en"
+            ? "This audio file could not be loaded or is not supported."
+            : "音频无法加载或格式不受支持。"
+        );
+      }
     } else {
       audio.pause();
     }
@@ -86,7 +102,7 @@ export default function SongPlayer({
   }
 
   function getSongTitle(
-    selectedSong: (typeof songs)[SongId],
+    selectedSong: Song,
     currentLanguage: SiteLanguage
   ) {
     const title = selectedSong.title;
@@ -150,13 +166,14 @@ export default function SongPlayer({
             <figure className="cover-exhibit">
               <div className="cover-mount">
                 <div className="album-cover-large">
-                  <Image
+                  {song.cover && !coverError ? <Image
                     src={song.cover}
                     alt={songTitle}
                     fill
                     priority
                     sizes="(max-width: 600px) 78vw, (max-width: 980px) 320px, 34vw"
-                  />
+                    onError={() => setCoverError(true)}
+                  /> : <span className="cover-fallback">{language === "en" ? "Cover unavailable" : "封面无法加载"}</span>}
                 </div>
               </div>
             </figure>
@@ -204,16 +221,23 @@ export default function SongPlayer({
                   onPlay={() => setIsPlaying(true)}
                   onPause={() => setIsPlaying(false)}
                   onEnded={() => setIsPlaying(false)}
+                  onError={() => {
+                    setIsPlaying(false);
+                    setDuration(0);
+                    setAudioError(language === "en" ? "This audio file could not be loaded or is not supported." : "音频无法加载或格式不受支持。");
+                  }}
                 >
                   {language === "en"
                     ? "Your browser does not support the audio element."
                     : "你的浏览器不支持音频播放。"}
                 </audio>
+                {audioError && <p role="alert" className="audio-error">{audioError}</p>}
                 <div className="audio-controls">
                   <button
                     className="audio-play-button"
                     type="button"
                     onClick={togglePlayback}
+                    disabled={Boolean(audioError)}
                     aria-label={
                       isPlaying
                         ? language === "en"

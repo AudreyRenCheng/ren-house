@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useRef, type CSSProperties } from "react";
 
 import { useSound } from "@/components/SoundProvider";
-import { songs } from "@/data/songs";
+import { useSongs } from "@/components/SongsProvider";
 import type { SongId, SiteLanguage } from "@/types";
 
 export default function MusicShelf({
@@ -16,6 +16,7 @@ export default function MusicShelf({
   language: SiteLanguage;
   restoreFocusSongId: SongId | null;
 }) {
+  const songs = useSongs();
   const { playUISound } = useSound();
   const songButtonRefs = useRef<Partial<Record<SongId, HTMLButtonElement | null>>>(
     {}

@@ -1,0 +1,20 @@
+name = "rens-house-api"
+main = "src/index.ts"
+compatibility_date = "2026-07-20"
+
+[[d1_databases]]
+binding = "SONGS_DB"
+database_name = "ren-house-db"
+database_id = "fd6f9452-d996-4e5c-a772-606b0f9ba336"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "SONGS_MEDIA"
+bucket_name = "ren-house-media"
+
+[vars]
+ENVIRONMENT = "production"
+ACCESS_TEAM_DOMAIN = "https://YOUR_TEAM.cloudflareaccess.com"
+ACCESS_AUD = "REPLACE_WITH_ACCESS_APPLICATION_AUD"
+ALLOWED_ORIGIN = "https://ren-house.pages.dev"
+PUBLIC_MEDIA_BASE_URL = "https://rens-house-api.chengbecky2021.workers.dev"

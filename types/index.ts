@@ -6,7 +6,7 @@ export type Screen =
   | "song";
 export type Mode = "casual" | "explore" | null;
 export type RoomId = "room1" | "room2" | "room3";
-export type SongId = "song1" | "song2" | "song3";
+export type SongId = string;
 export type MusicRoomSource = "roomDoor" | "quickEntry";
 export type RoomIntroTheme = "music" | "story" | "cs";
 export type DoorTheme = "music" | "story" | "cs";
@@ -73,6 +73,8 @@ export type Lyrics = {
 
 export type Song = {
   id: SongId;
+  slug?: string;
+  shelfOrder?: number;
   title: SongTitle;
   completedDate: string;
   description: LocalizedText;
@@ -105,3 +107,5 @@ export type SongMemory = {
   src?: string;
   thumbnail?: string;
 };
+
+export type SongCollection = Record<SongId, Song>;
