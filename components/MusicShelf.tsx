@@ -1,11 +1,96 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 
 import { useSound } from "@/components/SoundProvider";
 import { useSongs } from "@/components/SongsProvider";
 import type { SongId, SiteLanguage } from "@/types";
+
+type CoverState = "loading" | "loaded" | "error";
+const debugCovers = process.env.NODE_ENV === "development";
+
+function ShelfCover({
+  src,
+  eager,
+  active,
+}: {
+  src: string;
+  eager: boolean;
+  active: boolean;
+}) {
+  const imageRef = useRef<HTMLImageElement | null>(null);
+  const [state, setState] = useState<CoverState>("loading");
+
+  const updateState = useCallback((nextState: CoverState) => {
+    setState((current) => {
+      if (current === nextState) return current;
+      if (debugCovers) console.info("[cover]", { state: nextState, src });
+      return nextState;
+    });
+  }, [src]);
+
+  const syncImageState = useCallback(() => {
+    const image = imageRef.current;
+    if (!image) return;
+    if (image.complete && image.naturalWidth > 0) updateState("loaded");
+    else if (image.complete) updateState("error");
+  }, [updateState]);
+
+  useEffect(() => {
+    const image = imageRef.current;
+    if (!image) return;
+    if (image.complete && image.naturalWidth > 0) updateState("loaded");
+    else if (image.complete) updateState("error");
+    else updateState("loading");
+  }, [src, updateState]);
+
+  useEffect(() => {
+    if (active) syncImageState();
+  }, [active, syncImageState]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") syncImageState();
+    };
+    const handlePageShow = () => syncImageState();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pageshow", handlePageShow);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pageshow", handlePageShow);
+    };
+  }, [syncImageState]);
+
+  return (
+    <span className="album-cover" data-cover-state={state}>
+      <span className="cover-fallback" aria-hidden="true">
+        <span>ARCHIVE</span>
+      </span>
+      <Image
+        ref={imageRef}
+        className={`shelf-cover-image is-${state}`}
+        src={src}
+        alt=""
+        fill
+        sizes="(max-width: 760px) 190px, (max-width: 980px) 156px, 210px"
+        loading={eager ? "eager" : "lazy"}
+        fetchPriority={eager ? "high" : "auto"}
+        onLoad={() => updateState("loaded")}
+        onError={() => {
+          if (debugCovers) console.warn("[cover] load_error", { src });
+          updateState("error");
+        }}
+      />
+    </span>
+  );
+}
 
 export default function MusicShelf({
   onSelectSong,
@@ -114,23 +199,7 @@ export default function MusicShelf({
           onSelectSong(songId);
         }}
       >
-        <span className="album-cover">
-          <span className="cover-fallback" aria-hidden="true">
-            <span>ARCHIVE</span>
-          </span>
-          <Image
-            src={song.cover}
-            alt=""
-            fill
-            sizes="(max-width: 760px) 190px, (max-width: 980px) 156px, 210px"
-            onError={(event) => {
-              event.currentTarget.style.display = "none";
-            }}
-            onLoad={(event) => {
-              event.currentTarget.style.display = "block";
-            }}
-          />
-        </span>
+        <ShelfCover src={song.cover} eager={index < 3} active={active} />
 
         <span
           className={`paper-boat-label ${boatSize} ${
@@ -469,10 +538,16 @@ export default function MusicShelf({
 
         .album-cover img {
           display: block;
+          z-index: 1;
           object-fit: cover;
         }
 
+        .album-cover img.is-error {
+          visibility: hidden;
+        }
+
         .cover-fallback {
+          z-index: 0;
           display: grid;
           place-items: center;
           background:

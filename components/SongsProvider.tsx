@@ -1,15 +1,15 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { apiBaseUrl, fallbackSongs, mergeSongs, type ApiSong } from "@/lib/songsApi";
+import { fallbackSongs, mergeSongs, songsApiUrl, type ApiSong } from "@/lib/songsApi";
 import type { SongCollection } from "@/types";
 
 const SongsContext = createContext<SongCollection>(fallbackSongs);
+const debugSongs = process.env.NODE_ENV === "development";
 
 export function SongsProvider({ children }: { children: ReactNode }) {
   const [songs, setSongs] = useState<SongCollection>(fallbackSongs);
   useEffect(() => {
-    if (!apiBaseUrl) return;
     let disposed = false;
     let inFlight = false;
     let failures = 0;
@@ -28,7 +28,7 @@ export function SongsProvider({ children }: { children: ReactNode }) {
       lastRequestAt = Date.now();
       controller = new AbortController();
       try {
-        const response = await fetch(`${apiBaseUrl}/api/songs`, {
+        const response = await fetch(songsApiUrl, {
           cache: "no-cache",
           headers: { accept: "application/json" },
           signal: controller.signal,
@@ -36,12 +36,25 @@ export function SongsProvider({ children }: { children: ReactNode }) {
         if (!response.ok) throw new Error("Songs API unavailable");
         const body = await response.json() as { songs: ApiSong[] };
         if (!Array.isArray(body.songs)) throw new Error("Invalid songs API response");
-        if (!disposed) setSongs(mergeSongs(body.songs));
+        const mergedSongs = mergeSongs(body.songs);
+        if (debugSongs) {
+          console.info("[songs] api_success", {
+            apiSongs: body.songs.length,
+            mergedSongs: Object.keys(mergedSongs).length,
+          });
+        }
+        if (!disposed) setSongs(mergedSongs);
         failures = 0;
         schedule(60_000);
-      } catch {
+      } catch (error) {
         if (disposed || controller.signal.aborted) return;
         failures += 1;
+        if (debugSongs) {
+          console.warn("[songs] api_failure", {
+            attempt: failures,
+            message: error instanceof Error ? error.message : "Unknown error",
+          });
+        }
         schedule(failures === 1 ? 5_000 : failures === 2 ? 15_000 : 60_000);
       } finally {
         inFlight = false;
@@ -54,7 +67,14 @@ export function SongsProvider({ children }: { children: ReactNode }) {
       void loadLatestSongs();
     };
 
-    const handlePageShow = () => revalidateWhenActive();
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted && !inFlight) {
+        window.clearTimeout(retryTimer);
+        void loadLatestSongs();
+        return;
+      }
+      revalidateWhenActive();
+    };
     document.addEventListener("visibilitychange", revalidateWhenActive);
     window.addEventListener("focus", revalidateWhenActive);
     window.addEventListener("pageshow", handlePageShow);
