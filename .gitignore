@@ -51,7 +51,6 @@ __pycache__/
 .dev.vars
 worker/.dev.vars
 worker/.wrangler/
-/.wrangler/
 worker/.codex-tmp/
 
 .codex-tmp/

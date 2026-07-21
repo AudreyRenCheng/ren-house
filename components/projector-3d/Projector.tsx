@@ -18,7 +18,6 @@ type ProjectorProps = {
   isLit?: boolean;
   isDropTarget?: boolean;
   className?: string;
-  enableCanvas?: boolean;
 };
 
 type NavigatorWithMemory = Navigator & {
@@ -45,7 +44,6 @@ export default function Projector({
   isLit = false,
   isDropTarget = false,
   className = "",
-  enableCanvas = false,
 }: ProjectorProps) {
   const rootRef = useRef<HTMLSpanElement>(null);
   const [isNearViewport, setIsNearViewport] = useState(false);
@@ -96,7 +94,7 @@ export default function Projector({
     setIsReady(false);
   }, []);
   const shouldRenderCanvas =
-    enableCanvas && isCapable && isNearViewport && isDocumentVisible && !hasFailed;
+    isCapable && isNearViewport && isDocumentVisible && !hasFailed;
 
   return (
     <span

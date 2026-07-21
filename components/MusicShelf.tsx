@@ -1,7 +1,8 @@
 "use client";
-/* eslint-disable @next/next/no-img-element -- Native img avoids Safari-specific Next image lifecycle issues on the preserved shelf. */
 
+import Image from "next/image";
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -12,34 +13,81 @@ import { useSound } from "@/components/SoundProvider";
 import { useSongs } from "@/components/SongsProvider";
 import type { SongId, SiteLanguage } from "@/types";
 
+type CoverState = "loading" | "loaded" | "error";
+const debugCovers = process.env.NODE_ENV === "development";
+
 function ShelfCover({
   src,
   eager,
+  active,
 }: {
   src: string;
   eager: boolean;
+  active: boolean;
 }) {
-  const [failedSrc, setFailedSrc] = useState("");
-  const failed = failedSrc === src;
+  const imageRef = useRef<HTMLImageElement | null>(null);
+  const [state, setState] = useState<CoverState>("loading");
+
+  const updateState = useCallback((nextState: CoverState) => {
+    setState((current) => {
+      if (current === nextState) return current;
+      if (debugCovers) console.info("[cover]", { state: nextState, src });
+      return nextState;
+    });
+  }, [src]);
+
+  const syncImageState = useCallback(() => {
+    const image = imageRef.current;
+    if (!image) return;
+    if (image.complete && image.naturalWidth > 0) updateState("loaded");
+    else if (image.complete) updateState("error");
+  }, [updateState]);
+
+  useEffect(() => {
+    const image = imageRef.current;
+    if (!image) return;
+    if (image.complete && image.naturalWidth > 0) updateState("loaded");
+    else if (image.complete) updateState("error");
+    else updateState("loading");
+  }, [src, updateState]);
+
+  useEffect(() => {
+    if (active) syncImageState();
+  }, [active, syncImageState]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") syncImageState();
+    };
+    const handlePageShow = () => syncImageState();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pageshow", handlePageShow);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pageshow", handlePageShow);
+    };
+  }, [syncImageState]);
 
   return (
-    <span className="album-cover">
-      <img
+    <span className="album-cover" data-cover-state={state}>
+      <span className="cover-fallback" aria-hidden="true">
+        <span>ARCHIVE</span>
+      </span>
+      <Image
+        ref={imageRef}
+        className={`shelf-cover-image is-${state}`}
         src={src}
         alt=""
-        width="1200"
-        height="1200"
+        fill
+        sizes="(max-width: 760px) 190px, (max-width: 980px) 156px, 210px"
         loading={eager ? "eager" : "lazy"}
-        decoding="async"
         fetchPriority={eager ? "high" : "auto"}
-        onLoad={() => setFailedSrc((current) => current === src ? "" : current)}
-        onError={() => setFailedSrc(src)}
+        onLoad={() => updateState("loaded")}
+        onError={() => {
+          if (debugCovers) console.warn("[cover] load_error", { src });
+          updateState("error");
+        }}
       />
-      {failed && (
-        <span className="cover-fallback" aria-hidden="true">
-          <span>ARCHIVE</span>
-        </span>
-      )}
     </span>
   );
 }
@@ -151,7 +199,7 @@ export default function MusicShelf({
           onSelectSong(songId);
         }}
       >
-        <ShelfCover src={song.cover} eager={index < 6} />
+        <ShelfCover src={song.cover} eager={index < 3} active={active} />
 
         <span
           className={`paper-boat-label ${boatSize} ${
@@ -494,8 +542,12 @@ export default function MusicShelf({
           object-fit: cover;
         }
 
+        .album-cover img.is-error {
+          visibility: hidden;
+        }
+
         .cover-fallback {
-          z-index: 2;
+          z-index: 0;
           display: grid;
           place-items: center;
           background:

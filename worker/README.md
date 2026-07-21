@@ -47,33 +47,29 @@ On the downstream admin Worker Access application, keep the existing user policy
 
 ## Pages variables
 
-Configure the two Pages Function runtime variables, then rebuild Pages:
+Configure the public build variable and the Pages Function runtime variable, then rebuild Pages:
 
 ```text
-SONGS_API_URL=https://rens-house-api.YOUR_SUBDOMAIN.workers.dev
+NEXT_PUBLIC_SONGS_API_URL=https://rens-house-api.YOUR_SUBDOMAIN.workers.dev
 ADMIN_API_URL=https://rens-house-admin-api.YOUR_SUBDOMAIN.workers.dev
 ```
 
-Delete the no-longer-used `NEXT_PUBLIC_SONGS_API_URL` and `NEXT_PUBLIC_ADMIN_API_URL`. `SONGS_API_URL` and `ADMIN_API_URL` are available only to their Pages Functions and are not included in the static JavaScript bundle.
+Keep `NEXT_PUBLIC_SONGS_API_URL`. Delete `NEXT_PUBLIC_ADMIN_API_URL`; browser code no longer reads it. `ADMIN_API_URL` is available only to the Pages Function and is not included in the static JavaScript bundle.
 
 ## Same-origin Pages Function proxy
 
-The admin proxy entry is `functions/admin-api/[[path]].ts`. Browser requests such as `/admin-api/songs/123/publish` are mapped to `${ADMIN_API_URL}/api/admin/songs/123/publish`. It forwards method, query, streamed body, and Content-Type, including multipart uploads. It never forwards browser cookies and never logs the assertion. All responses use `no-store` cache headers.
+The proxy entry is `functions/admin-api/[[path]].ts`. Browser requests such as `/admin-api/songs/123/publish` are mapped to `${ADMIN_API_URL}/api/admin/songs/123/publish`. It forwards method, query, streamed body, and Content-Type, including multipart uploads. It never forwards browser cookies and never logs the assertion. All responses use `no-store` cache headers.
 
-The public proxy entry is `functions/songs-api/[[path]].ts`. `/songs-api/songs` maps to `${SONGS_API_URL}/api/songs`, forwards GET query parameters, and returns the upstream status, Content-Type, ETag, and Cache-Control. It deliberately creates a new minimal header set, so browser cookies and Access assertions are never sent to the public Worker. It is retained for diagnostics and future use; the production Music Room reads the committed `/generated-data/songs.json` snapshot instead.
-
-`public/_routes.json` limits Pages Functions invocations to `/admin-api/*` and `/songs-api/*`; other paths remain ordinary static assets. The root `functions/` directory is intentionally outside `out/`. With Pages Git integration, Cloudflare deploys it alongside the `output: "export"` contents, while Next continues producing static `/`, `/admin`, and `/admin/song` pages in `out/`.
+`public/_routes.json` limits Pages Functions invocations to `/admin-api/*`; other paths remain ordinary static assets. The root `functions/` directory is intentionally outside `out/`. With Pages Git integration, Cloudflare deploys it alongside the `output: "export"` contents, while Next continues producing static `/`, `/admin`, and `/admin/song` pages in `out/`.
 
 Pages deployment steps:
 
 1. Keep build command `npm run build` and output directory `out`.
-2. Add the runtime variables `ADMIN_API_URL` and `SONGS_API_URL`.
-3. Remove `NEXT_PUBLIC_ADMIN_API_URL` and `NEXT_PUBLIC_SONGS_API_URL`.
+2. Add the runtime variable `ADMIN_API_URL` and retain `NEXT_PUBLIC_SONGS_API_URL`.
+3. Remove `NEXT_PUBLIC_ADMIN_API_URL`.
 4. Extend the Pages Access application so both `/admin/*` and `/admin-api/*` are protected.
 5. Add the Linked App Token Service Auth policy to the admin Worker Access application, selecting the Pages application.
 6. Trigger the normal Pages Git deployment. Do not copy `functions/` into `out/` manually.
-
-Publishing Music Room content is a separate local step: publish in admin, run `npm run sync:songs`, verify with `npm run check:content`, then commit the generated data and media before the normal Pages deployment. Pages builds do not fetch song content from the Worker.
 
 ## Local development
 
