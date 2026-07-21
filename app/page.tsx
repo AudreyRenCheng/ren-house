@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, type SetStateAction } from "react";
 
 import type {
@@ -16,14 +17,19 @@ import ModeSwitcher from "@/components/ModeSwitcher";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import HouseMap from "@/components/HouseMap";
 import Entrance from "@/components/Entrance";
-import MusicRoom from "@/components/MusicRoom";
-import SongPlayer from "@/components/SongPlayer";
 import RoomView from "@/components/RoomView";
 import PuzzleModal from "@/components/PuzzleModal";
 import { useSound } from "@/components/SoundProvider";
 import SoundToggle from "@/components/SoundToggle";
 import { roomIntros } from "@/data/roomIntros";
 import { SongsProvider } from "@/components/SongsProvider";
+
+const MusicRoom = dynamic(() => import("@/components/MusicRoom"), {
+  loading: () => null,
+});
+const SongPlayer = dynamic(() => import("@/components/SongPlayer"), {
+  loading: () => null,
+});
 
 const warmControlTheme = {
   color: "#5a321d",

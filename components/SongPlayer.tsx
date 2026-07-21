@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import {
   useEffect,
   useRef,
@@ -11,11 +12,15 @@ import {
 
 import ContactInfo from "@/components/ContactInfo";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
-import MemoryProjector from "@/components/MemoryProjector";
 import { useSound } from "@/components/SoundProvider";
 import { useSongs } from "@/components/SongsProvider";
+import { useStableAudio } from "@/hooks/useStableAudio";
 import type { Song } from "@/types";
 import type { SongId, SiteLanguage } from "@/types";
+
+const MemoryProjector = dynamic(() => import("@/components/MemoryProjector"), {
+  loading: () => null,
+});
 
 export default function SongPlayer({
   currentSong,
@@ -35,31 +40,29 @@ export default function SongPlayer({
   const songs = useSongs();
   const { playUISound } = useSound();
   const song = songs[currentSong];
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const {
+    audioRef,
+    status: audioStatus,
+    currentTime: rawCurrentTime,
+    duration: rawDuration,
+    failure: audioFailure,
+    togglePlayback,
+    retry: retryAudio,
+    seek,
+    setVolume: setAudioElementVolume,
+    log: logAudio,
+  } = useStableAudio(song.audio);
   const previousVolumeRef = useRef(0.8);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(0.8);
-  const [audioError, setAudioError] = useState("");
-  const [coverError, setCoverError] = useState(false);
+  const [failedCoverSrc, setFailedCoverSrc] = useState("");
+  const isPlaying = audioStatus === "playing";
+  const duration = Number.isFinite(rawDuration) && rawDuration > 0 ? rawDuration : 0;
+  const currentTime = Number.isFinite(rawCurrentTime) && rawCurrentTime > 0 ? rawCurrentTime : 0;
+  const coverError = failedCoverSrc === song.cover;
 
   useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    audio.pause();
-    audio.currentTime = 0;
-    setIsPlaying(false);
-    setCurrentTime(0);
-    setDuration(Number.isFinite(audio.duration) ? audio.duration : 0);
-    setAudioError("");
-    setCoverError(false);
-  }, [currentSong]);
-
-  useEffect(() => {
-    if (audioRef.current) audioRef.current.volume = volume;
-  }, [volume]);
+    setAudioElementVolume(volume);
+  }, [setAudioElementVolume, volume]);
 
   function formatPlaybackTime(value: number) {
     if (!Number.isFinite(value) || value < 0) return "0:00";
@@ -68,27 +71,6 @@ export default function SongPlayer({
       .toString()
       .padStart(2, "0");
     return `${minutes}:${seconds}`;
-  }
-
-  async function togglePlayback() {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    if (audio.paused) {
-      try {
-        await audio.play();
-        setAudioError("");
-      } catch {
-        setIsPlaying(false);
-        setAudioError(
-          language === "en"
-            ? "This audio file could not be loaded or is not supported."
-            : "音频无法加载或格式不受支持。"
-        );
-      }
-    } else {
-      audio.pause();
-    }
   }
 
   function toggleMute() {
@@ -138,6 +120,27 @@ export default function SongPlayer({
         (line.language === "mixed" || line.language !== language)
     );
   });
+  const audioMessage = audioFailure
+    ? language === "en"
+      ? audioFailure.name === "NotAllowedError"
+        ? "Playback was blocked. Tap play again."
+        : audioFailure.name === "AbortError"
+          ? "Playback was interrupted. Tap reload, then play again."
+          : audioFailure.name === "NotSupportedError" || audioFailure.mediaErrorCode === 4
+            ? "This audio format is not supported."
+            : "The audio could not be loaded. Tap reload to retry."
+      : audioFailure.name === "NotAllowedError"
+        ? "浏览器阻止了播放，请再次点击播放。"
+        : audioFailure.name === "AbortError"
+          ? "播放被中断，请重新加载后再点击播放。"
+          : audioFailure.name === "NotSupportedError" || audioFailure.mediaErrorCode === 4
+            ? "当前浏览器不支持这个音频格式。"
+            : "音频加载失败，请点击重新加载。"
+    : audioStatus === "stalled"
+      ? language === "en"
+        ? "Audio is taking longer than expected. You can reload it."
+        : "音频加载时间较长，可以尝试重新加载。"
+      : "";
 
   return (
     <main className="song-player-page">
@@ -172,7 +175,7 @@ export default function SongPlayer({
                     fill
                     priority
                     sizes="(max-width: 600px) 78vw, (max-width: 980px) 320px, 34vw"
-                    onError={() => setCoverError(true)}
+                    onError={() => setFailedCoverSrc(song.cover)}
                   /> : <span className="cover-fallback">{language === "en" ? "Cover unavailable" : "封面无法加载"}</span>}
                 </div>
               </div>
@@ -199,45 +202,23 @@ export default function SongPlayer({
                 </div>
                 <audio
                   ref={audioRef}
-                  src={song.audio}
                   preload="metadata"
-                  onLoadedMetadata={(event) =>
-                    setDuration(
-                      Number.isFinite(event.currentTarget.duration)
-                        ? event.currentTarget.duration
-                        : 0
-                    )
-                  }
-                  onDurationChange={(event) =>
-                    setDuration(
-                      Number.isFinite(event.currentTarget.duration)
-                        ? event.currentTarget.duration
-                        : 0
-                    )
-                  }
-                  onTimeUpdate={(event) =>
-                    setCurrentTime(event.currentTarget.currentTime)
-                  }
-                  onPlay={() => setIsPlaying(true)}
-                  onPause={() => setIsPlaying(false)}
-                  onEnded={() => setIsPlaying(false)}
-                  onError={() => {
-                    setIsPlaying(false);
-                    setDuration(0);
-                    setAudioError(language === "en" ? "This audio file could not be loaded or is not supported." : "音频无法加载或格式不受支持。");
-                  }}
                 >
                   {language === "en"
                     ? "Your browser does not support the audio element."
                     : "你的浏览器不支持音频播放。"}
                 </audio>
-                {audioError && <p role="alert" className="audio-error">{audioError}</p>}
+                {audioMessage && <p role="alert" className="audio-error">{audioMessage}</p>}
+                {(audioStatus === "error" || audioStatus === "stalled") && (
+                  <button className="audio-retry-button" type="button" onClick={retryAudio}>
+                    {language === "en" ? "Reload audio" : "重新加载音频"}
+                  </button>
+                )}
                 <div className="audio-controls">
                   <button
                     className="audio-play-button"
                     type="button"
                     onClick={togglePlayback}
-                    disabled={Boolean(audioError)}
                     aria-label={
                       isPlaying
                         ? language === "en"
@@ -259,9 +240,10 @@ export default function SongPlayer({
                     className="audio-progress"
                     type="range"
                     min="0"
-                    max={duration || 0}
+                    max={duration || 1}
                     step="0.1"
-                    value={Math.min(currentTime, duration || 0)}
+                    value={duration > 0 ? Math.min(currentTime, duration) : 0}
+                    disabled={duration <= 0}
                     aria-label={language === "en" ? "Song progress" : "歌曲进度"}
                     style={{
                       background: `linear-gradient(90deg, var(--med-blue) 0 ${
@@ -272,8 +254,7 @@ export default function SongPlayer({
                     }}
                     onChange={(event) => {
                       const nextTime = Number(event.currentTarget.value);
-                      if (audioRef.current) audioRef.current.currentTime = nextTime;
-                      setCurrentTime(nextTime);
+                      seek(nextTime);
                     }}
                   />
 
@@ -400,7 +381,15 @@ export default function SongPlayer({
                 : "这首歌慢慢成形时留下的片段。"}
             </span>
           </header>
-          <MemoryProjector memories={song.memories} language={language} />
+          <MemoryProjector
+            memories={song.memories}
+            language={language}
+            onProjectionChange={(open) =>
+              logAudio(open ? "projector_open" : "projector_close", {
+                audioElementPresent: Boolean(audioRef.current),
+              })
+            }
+          />
         </section>
       </section>
 
@@ -641,6 +630,29 @@ export default function SongPlayer({
         }
 
         .audio-console audio { display: none; }
+
+        .audio-error {
+          margin: 0 8px 9px;
+          color: #86432f;
+          font-size: 12px;
+          line-height: 1.4;
+        }
+
+        .audio-retry-button {
+          margin: 0 8px 10px;
+          padding: 6px 10px;
+          border: 1px solid rgba(23, 107, 145, 0.34);
+          border-radius: 999px;
+          background: #f8f1df;
+          color: #174f65;
+          cursor: pointer;
+          font: 650 12px/1.2 var(--font-body);
+        }
+
+        .audio-retry-button:focus-visible {
+          outline: 3px solid rgba(23, 107, 145, 0.28);
+          outline-offset: 2px;
+        }
 
         .audio-controls {
           display: grid;

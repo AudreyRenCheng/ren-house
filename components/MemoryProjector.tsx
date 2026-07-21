@@ -17,11 +17,13 @@ import type { SiteLanguage, SongMemory } from "@/types";
 type MemoryProjectorProps = {
   memories?: SongMemory[];
   language: SiteLanguage;
+  onProjectionChange?: (open: boolean) => void;
 };
 
 export default function MemoryProjector({
   memories = [],
   language,
+  onProjectionChange,
 }: MemoryProjectorProps) {
   const { playUISound } = useSound();
   const [isProjecting, setIsProjecting] = useState(false);
@@ -70,7 +72,8 @@ export default function MemoryProjector({
   const closeProjection = useCallback(() => {
     playUISound("close");
     setIsProjecting(false);
-  }, [playUISound]);
+    onProjectionChange?.(false);
+  }, [onProjectionChange, playUISound]);
 
   useAccessibleDialog({
     open: isProjecting,
@@ -100,6 +103,7 @@ export default function MemoryProjector({
     playUISound("open");
     setCurrentIndex(index);
     setIsProjecting(true);
+    onProjectionChange?.(true);
   }
 
   function activateMiniSlide(index: number) {
@@ -226,12 +230,20 @@ export default function MemoryProjector({
                 <span
                   className="mini-slide-window"
                   style={
-                    memory.thumbnail
+                    isProjecting && memory.thumbnail
                       ? { backgroundImage: `url(${memory.thumbnail})` }
                       : undefined
                   }
                 >
-                  {!memory.thumbnail && memory.type === "note" ? "Aa" : ""}
+                  {!isProjecting || !memory.thumbnail
+                    ? memory.type === "note"
+                      ? "Aa"
+                      : memory.type === "image"
+                        ? "IMG"
+                        : memory.type === "audio"
+                          ? "AUD"
+                          : "VID"
+                    : ""}
                 </span>
               </button>
             ))}
@@ -254,7 +266,7 @@ export default function MemoryProjector({
           <div className="projection-room" />
 
           <div className="active-projector is-3d" aria-hidden="true">
-            <Projector isLit className="active-projector-visual" />
+            <Projector enableCanvas isLit className="active-projector-visual" />
           </div>
           <div className="projection-beam is-3d" aria-hidden="true" />
 
