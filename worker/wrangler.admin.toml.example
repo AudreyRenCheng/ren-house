@@ -1,11 +1,11 @@
-name = "rens-house-api"
+name = "rens-house-admin-api"
 main = "src/index.ts"
 compatibility_date = "2026-07-20"
 
 [[d1_databases]]
 binding = "SONGS_DB"
 database_name = "ren-house-db"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "REPLACE_WITH_EXISTING_D1_DATABASE_ID"
 migrations_dir = "migrations"
 
 [[r2_buckets]]
@@ -13,7 +13,9 @@ binding = "SONGS_MEDIA"
 bucket_name = "ren-house-media"
 
 [vars]
-API_MODE = "public"
+API_MODE = "admin"
 ENVIRONMENT = "production"
+ACCESS_TEAM_DOMAIN = "https://YOUR_TEAM.cloudflareaccess.com"
+ACCESS_AUD = "REPLACE_WITH_ADMIN_ACCESS_APPLICATION_AUD"
 ALLOWED_ORIGIN = "https://YOUR_PAGES_DOMAIN"
-PUBLIC_MEDIA_BASE_URL = "https://YOUR_WORKER_OR_CUSTOM_DOMAIN"
+PUBLIC_MEDIA_BASE_URL = "https://YOUR_PUBLIC_WORKER_OR_CUSTOM_DOMAIN"

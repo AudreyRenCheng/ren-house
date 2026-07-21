@@ -30,4 +30,4 @@ All visitor assets are served from `public/`; the 2.5D projector loads only when
 
 ## Song publishing backend
 
-The original source songs remain a runtime fallback. When `NEXT_PUBLIC_SONGS_API_URL` is configured, the frontend first requests published songs from the Worker and converts them into the existing shelf, player, lyric, and projector models. See [worker/README.md](worker/README.md) for D1/R2 initialization, Cloudflare Access, local development, and deployment.
+The original source songs remain a runtime fallback. `NEXT_PUBLIC_SONGS_API_URL` points to the public read/media Worker, while `/admin` uses the separately Access-protected `NEXT_PUBLIC_ADMIN_API_URL`. Both Workers share the existing D1/R2 through separate Wrangler configurations and one source entry. See [worker/README.md](worker/README.md) for Access, local development, and deployment.

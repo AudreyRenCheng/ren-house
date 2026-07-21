@@ -1,16 +1,18 @@
+import { createRemoteJWKSet, errors, jwtVerify } from "jose";
+
 interface D1Result<T = unknown> { results?: T[]; success: boolean; }
 interface D1Statement { bind(...values: unknown[]): D1Statement; first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<D1Result<T>>; run(): Promise<D1Result>; }
 interface D1Database { prepare(query: string): D1Statement; batch(statements: D1Statement[]): Promise<D1Result[]>; }
 interface R2Object { body: ReadableStream; size?: number; httpMetadata?: { contentType?: string }; }
 interface R2Bucket { put(key: string, value: ArrayBuffer, options?: { httpMetadata?: { contentType?: string }; customMetadata?: Record<string,string> }): Promise<unknown>; get(key: string): Promise<R2Object | null>; head(key: string): Promise<unknown | null>; delete(key: string): Promise<void>; }
-interface Env { SONGS_DB: D1Database; SONGS_MEDIA: R2Bucket; ENVIRONMENT?: string; DEV_BYPASS_AUTH?: string; ACCESS_TEAM_DOMAIN?: string; ACCESS_AUD?: string; ALLOWED_ORIGIN?: string; PUBLIC_MEDIA_BASE_URL?: string; }
+interface Env { SONGS_DB: D1Database; SONGS_MEDIA: R2Bucket; API_MODE?: "public" | "admin"; ENVIRONMENT?: string; DEV_BYPASS_AUTH?: string; ACCESS_TEAM_DOMAIN?: string; ACCESS_AUD?: string; ALLOWED_ORIGIN?: string; PUBLIC_MEDIA_BASE_URL?: string; }
 
 type SongInput = Record<string, unknown> & { extras?: ExtraInput[] };
 type ExtraInput = Record<string, unknown>;
 const statuses = new Set(["draft", "published", "hidden"]);
 const languages = new Set(["zh", "en", "mixed"]);
 const extraTypes = new Set(["image", "audio", "video", "text"]);
-const enc = new TextEncoder();
+const accessJwks = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 
 const json = (data: unknown, status = 200, headers: HeadersInit = {}) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", ...headers } });
 const fail = (message: string, status = 400, details?: string[]) => json({ error: message, details }, status);
@@ -31,29 +33,54 @@ function cors(env: Env) {
     vary: "Origin",
   };
 }
-function base64url(value: string) {
-  const padded = value.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((value.length + 3) % 4);
-  return Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
+type AccessFailureCategory =
+  | "missing_token"
+  | "missing_config"
+  | "invalid_issuer"
+  | "invalid_audience"
+  | "expired_token"
+  | "signature_verification_failed";
+
+function logAccessFailure(category: AccessFailureCategory) {
+  console.warn(`[access] authentication_failed category=${category}`);
+}
+
+function accessFailureCategory(error: unknown): AccessFailureCategory {
+  if (error instanceof errors.JWTExpired) return "expired_token";
+  if (error instanceof errors.JWTClaimValidationFailed) {
+    if (error.claim === "iss") return "invalid_issuer";
+    if (error.claim === "aud") return "invalid_audience";
+  }
+  return "signature_verification_failed";
 }
 async function verifyAccess(request: Request, env: Env): Promise<boolean> {
   if (env.ENVIRONMENT === "development" && env.DEV_BYPASS_AUTH === "true") return true;
+  if (!env.ACCESS_TEAM_DOMAIN || !env.ACCESS_AUD) {
+    logAccessFailure("missing_config");
+    return false;
+  }
   const token = request.headers.get("Cf-Access-Jwt-Assertion");
-  if (!token || !env.ACCESS_TEAM_DOMAIN || !env.ACCESS_AUD) return false;
+  if (!token) {
+    logAccessFailure("missing_token");
+    return false;
+  }
+  const issuer = env.ACCESS_TEAM_DOMAIN.replace(/\/$/, "");
   try {
-    const [head, payloadPart, signature] = token.split(".");
-    if (!head || !payloadPart || !signature) return false;
-    const header = JSON.parse(new TextDecoder().decode(base64url(head))) as { kid?: string; alg?: string };
-    const payload = JSON.parse(new TextDecoder().decode(base64url(payloadPart))) as { aud?: string[] | string; exp?: number; iss?: string };
-    const issuer = env.ACCESS_TEAM_DOMAIN.replace(/\/$/, "");
-    const aud = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
-    if (header.alg !== "RS256" || !header.kid || !aud.includes(env.ACCESS_AUD) || !payload.exp || payload.exp <= Date.now() / 1000 || payload.iss !== issuer) return false;
-    const certs = await fetch(`${issuer}/cdn-cgi/access/certs`).then((r) => r.json()) as { public_certs?: { kid: string; cert: string }[] };
-    const pem = certs.public_certs?.find((item) => item.kid === header.kid)?.cert;
-    if (!pem) return false;
-    const der = base64url(pem.replace(/-----[^-]+-----|\s/g, "").replace(/\+/g, "-").replace(/\//g, "_"));
-    const key = await crypto.subtle.importKey("spki", der, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
-    return crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, base64url(signature), enc.encode(`${head}.${payloadPart}`));
-  } catch { return false; }
+    let jwks = accessJwks.get(issuer);
+    if (!jwks) {
+      jwks = createRemoteJWKSet(new URL(`${issuer}/cdn-cgi/access/certs`));
+      accessJwks.set(issuer, jwks);
+    }
+    await jwtVerify(token, jwks, {
+      issuer,
+      audience: env.ACCESS_AUD,
+      algorithms: ["RS256"],
+    });
+    return true;
+  } catch (error) {
+    logAccessFailure(accessFailureCategory(error));
+    return false;
+  }
 }
 
 function lyricErrors(input: SongInput) {
@@ -143,7 +170,12 @@ async function upload(request: Request, env: Env) {
 async function router(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url); const path = url.pathname.replace(/\/$/, "") || "/"; const method = request.method;
   if (method === "OPTIONS") return new Response(null, { status: 204, headers: cors(env) });
-  if ((method === "GET" || method === "HEAD") && path.startsWith("/media/")) {
+  if (env.API_MODE !== "public" && env.API_MODE !== "admin") return fail("Worker API_MODE 未配置", 503);
+  const isPublicRoute = method === "GET" && (path === "/api/songs" || /^\/api\/songs\/[^/]+$/.test(path) || path.startsWith("/media/"));
+  const isAdminRoute = path.startsWith("/api/admin/");
+  if (env.API_MODE === "public" && !isPublicRoute) return fail("接口不存在", 404);
+  if (env.API_MODE === "admin" && !isAdminRoute) return fail("接口不存在", 404);
+  if (method === "GET" && path.startsWith("/media/")) {
     const key = path.slice(7).split("/").map(decodeURIComponent).join("/"); const object = await env.SONGS_MEDIA.get(key);
     if (!object) return fail("文件不存在", 404);
     const headers = new Headers({
@@ -153,7 +185,7 @@ async function router(request: Request, env: Env): Promise<Response> {
       "x-content-type-options": "nosniff",
     });
     if (object.size !== undefined) headers.set("content-length", String(object.size));
-    return new Response(method === "HEAD" ? null : object.body, { headers });
+    return new Response(object.body, { headers });
   }
   if (method === "GET" && path === "/api/songs") {
     const rows = (await env.SONGS_DB.prepare("SELECT * FROM songs WHERE status='published' ORDER BY shelf_order,id").all<Record<string,unknown>>()).results ?? [];
