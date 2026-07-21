@@ -10,7 +10,7 @@ import {
 } from "react";
 
 import { useSound } from "@/components/SoundProvider";
-import Projector from "@/components/projector-3d/Projector";
+import StaticProjector from "@/components/StaticProjector";
 import { useAccessibleDialog } from "@/hooks/useAccessibleDialog";
 import type { SiteLanguage, SongMemory } from "@/types";
 
@@ -206,7 +206,7 @@ export default function MemoryProjector({
               : "启动幻灯片投影机"
           }
         >
-          <Projector isDropTarget={isDragOverProjector} />
+          <StaticProjector isDropTarget={isDragOverProjector} />
         </button>
 
         <div
@@ -266,7 +266,7 @@ export default function MemoryProjector({
           <div className="projection-room" />
 
           <div className="active-projector is-3d" aria-hidden="true">
-            <Projector enableCanvas isLit className="active-projector-visual" />
+            <StaticProjector isLit className="active-projector-visual" />
           </div>
           <div className="projection-beam is-3d" aria-hidden="true" />
 

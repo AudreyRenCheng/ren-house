@@ -15,8 +15,8 @@ export const songs: Record<SongId, Song> = {
       en: "A gentle Chinese song about distance, memory, and a letter carried by the wind.",
       zh: "一首温柔的中文歌，关于距离、回忆，以及被晚风送来的信。",
     },
-    cover: "/covers/song1.png",
-    audio: "/audio/song1.mp3",
+    cover: "/music/covers/evening-wind-v1.png",
+    audio: "/music/audio/evening-wind-v1.mp3",
     memories: [
       {
         id: "evening-melody",
@@ -43,8 +43,8 @@ export const songs: Record<SongId, Song> = {
           en: "I kept returning to this soft evening color while shaping the arrangement.",
           zh: "做编配的时候，我一直回到这种柔软的傍晚颜色里。",
         },
-        src: "/covers/song1.png",
-        thumbnail: "/covers/song1.png",
+        src: "/music/extras/full/evening-wind-color-v1.jpg",
+        thumbnail: "/music/extras/thumbs/evening-wind-color-v1.jpg",
       },
       {
         id: "lyric-note",
@@ -221,8 +221,8 @@ export const songs: Record<SongId, Song> = {
       en: "A quiet English song about fragile emotions and learning to move forward.",
       zh: "一首安静的英文歌，关于脆弱的情绪，以及慢慢学会向前走。",
     },
-    cover: "/covers/song2.jpg",
-    audio: "/audio/song2.mp3",
+    cover: "/music/covers/sad-days-v1.jpg",
+    audio: "/music/audio/sad-days-v1.mp3",
     memories: [
       {
         id: "quiet-room",
@@ -249,8 +249,8 @@ export const songs: Record<SongId, Song> = {
           en: "A fragile visual note for the rain and the floor-shadow image.",
           zh: "一张脆弱的视觉笔记，关于雨声和留在地板上的影子。",
         },
-        src: "/covers/song2.jpg",
-        thumbnail: "/covers/song2.jpg",
+        src: "/music/extras/full/sad-days-moodboard-v1.jpg",
+        thumbnail: "/music/extras/thumbs/sad-days-moodboard-v1.jpg",
       },
     ],
     lyrics: {
@@ -302,8 +302,8 @@ export const songs: Record<SongId, Song> = {
       en: "A bilingual song that moves between Chinese memories and English fragments.",
       zh: "一首中英混合的歌，在中文记忆和英文片段之间慢慢移动。",
     },
-    cover: "/covers/song3.webp",
-    audio: "/audio/song3.mp3",
+    cover: "/music/covers/clouds-and-smile-v1.webp",
+    audio: "/music/audio/clouds-and-smile-v1.mp3",
     memories: [
       {
         id: "cloud-fragment",
@@ -317,8 +317,8 @@ export const songs: Record<SongId, Song> = {
           en: "The bilingual lines started from the feeling of a cloud crossing two rooms.",
           zh: "中英混合的句子，最初来自一朵云穿过两个房间的感觉。",
         },
-        src: "/covers/song3.webp",
-        thumbnail: "/covers/song3.webp",
+        src: "/music/extras/full/cloud-fragment-v1.jpg",
+        thumbnail: "/music/extras/thumbs/cloud-fragment-v1.jpg",
       },
       {
         id: "drawer-note",
