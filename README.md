@@ -30,4 +30,4 @@ All visitor assets are served from `public/`; the 2.5D projector loads only when
 
 ## Song publishing backend
 
-The original source songs remain a runtime fallback. `NEXT_PUBLIC_SONGS_API_URL` points to the public read/media Worker, while `/admin` uses the separately Access-protected `NEXT_PUBLIC_ADMIN_API_URL`. Both Workers share the existing D1/R2 through separate Wrangler configurations and one source entry. See [worker/README.md](worker/README.md) for Access, local development, and deployment.
+The original source songs remain a runtime fallback. `NEXT_PUBLIC_SONGS_API_URL` points to the public read/media Worker. Browser management requests use the same-origin `/admin-api/*` Pages Function, which securely forwards the Pages Access assertion to the separately protected admin Worker. Both Workers share the existing D1/R2. See [worker/README.md](worker/README.md) for Access, local development, and deployment.

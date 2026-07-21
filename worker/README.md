@@ -41,18 +41,35 @@ https://rens-house-admin-api.YOUR_SUBDOMAIN.workers.dev/*
 
 Set its policy to the allowed editor identities. Because this Worker has no public routes, the entire Worker can be Restricted safely. Copy this application's AUD into `wrangler.admin.toml` as `ACCESS_AUD`, and use the team domain as `ACCESS_TEAM_DOMAIN`. The Worker still cryptographically verifies `Cf-Access-Jwt-Assertion`; production denies missing, expired, incorrectly signed, wrong-issuer, or wrong-audience assertions.
 
-The existing Pages Access application may continue protecting `/admin/*`, but it does not replace protection of the admin Worker. After setup, Access logs should show requests under the new admin API application.
+The Pages Access application must protect both `/admin/*` and `/admin-api/*`. Keep its existing email Allow policy.
+
+On the downstream admin Worker Access application, keep the existing user policy and add a Service Auth policy with the **Linked App Token** selector pointing to the Pages Access application. The Pages Function receives the Pages-scoped token in `Cf-Access-Jwt-Assertion` and forwards it as `Cf-Access-Token`. Access validates the linked token, issues a new assertion scoped to the admin Worker's AUD, and sends that assertion to the Worker. The Worker continues to validate it with jose. After setup, Access logs should attribute the downstream request to the original user.
 
 ## Pages variables
 
-Configure both public build variables and rebuild Pages:
+Configure the public build variable and the Pages Function runtime variable, then rebuild Pages:
 
 ```text
 NEXT_PUBLIC_SONGS_API_URL=https://rens-house-api.YOUR_SUBDOMAIN.workers.dev
-NEXT_PUBLIC_ADMIN_API_URL=https://rens-house-admin-api.YOUR_SUBDOMAIN.workers.dev
+ADMIN_API_URL=https://rens-house-admin-api.YOUR_SUBDOMAIN.workers.dev
 ```
 
-The public site only uses `NEXT_PUBLIC_SONGS_API_URL`. `/admin` uses only `NEXT_PUBLIC_ADMIN_API_URL` with `credentials: "include"`.
+Keep `NEXT_PUBLIC_SONGS_API_URL`. Delete `NEXT_PUBLIC_ADMIN_API_URL`; browser code no longer reads it. `ADMIN_API_URL` is available only to the Pages Function and is not included in the static JavaScript bundle.
+
+## Same-origin Pages Function proxy
+
+The proxy entry is `functions/admin-api/[[path]].ts`. Browser requests such as `/admin-api/songs/123/publish` are mapped to `${ADMIN_API_URL}/api/admin/songs/123/publish`. It forwards method, query, streamed body, and Content-Type, including multipart uploads. It never forwards browser cookies and never logs the assertion. All responses use `no-store` cache headers.
+
+`public/_routes.json` limits Pages Functions invocations to `/admin-api/*`; other paths remain ordinary static assets. The root `functions/` directory is intentionally outside `out/`. With Pages Git integration, Cloudflare deploys it alongside the `output: "export"` contents, while Next continues producing static `/`, `/admin`, and `/admin/song` pages in `out/`.
+
+Pages deployment steps:
+
+1. Keep build command `npm run build` and output directory `out`.
+2. Add the runtime variable `ADMIN_API_URL` and retain `NEXT_PUBLIC_SONGS_API_URL`.
+3. Remove `NEXT_PUBLIC_ADMIN_API_URL`.
+4. Extend the Pages Access application so both `/admin/*` and `/admin-api/*` are protected.
+5. Add the Linked App Token Service Auth policy to the admin Worker Access application, selecting the Pages application.
+6. Trigger the normal Pages Git deployment. Do not copy `functions/` into `out/` manually.
 
 ## Local development
 

@@ -59,7 +59,7 @@ async function verifyAccess(request: Request, env: Env): Promise<boolean> {
     logAccessFailure("missing_config");
     return false;
   }
-  const token = request.headers.get("Cf-Access-Jwt-Assertion");
+  const token = request.headers.get("Cf-Access-Jwt-Assertion") ?? request.headers.get("Cf-Access-Token");
   if (!token) {
     logAccessFailure("missing_token");
     return false;
