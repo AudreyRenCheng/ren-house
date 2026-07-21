@@ -28,7 +28,11 @@ const MusicRoom = dynamic(() => import("@/components/MusicRoom"), {
   loading: () => null,
 });
 const SongPlayer = dynamic(() => import("@/components/SongPlayer"), {
-  loading: () => null,
+  loading: () => (
+    <main className="song-loading" aria-live="polite">
+      <p>Opening song…</p>
+    </main>
+  ),
 });
 
 const warmControlTheme = {

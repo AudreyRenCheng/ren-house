@@ -37,11 +37,13 @@ export function useStableAudio(src: string) {
   const sourceRef = useRef(src);
   const restoreTimeRef = useRef(0);
   const recoveryAttemptedRef = useRef(false);
+  const retryTaskRef = useRef<number | null>(null);
   const [status, setStatus] = useState<AudioStatus>(src ? "loading" : "idle");
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [buffered, setBuffered] = useState(0);
   const [failure, setFailure] = useState<AudioFailure | null>(null);
+  const [retryAttempts, setRetryAttempts] = useState(0);
 
   const log = useCallback((event: string, details?: Record<string, unknown>) => {
     if (!debugAudio) return;
@@ -79,6 +81,10 @@ export function useStableAudio(src: string) {
     const audio = audioRef.current;
     sourceRef.current = src;
     recoveryAttemptedRef.current = false;
+    if (retryTaskRef.current !== null) {
+      window.clearTimeout(retryTaskRef.current);
+      retryTaskRef.current = null;
+    }
     restoreTimeRef.current = 0;
     clearLoadingTimer();
     // The source identity changes the external media element and its entire UI snapshot.
@@ -87,6 +93,7 @@ export function useStableAudio(src: string) {
     setDuration(0);
     setBuffered(0);
     setFailure(null);
+    setRetryAttempts(0);
 
     if (!audio || !src) {
       setStatus("idle");
@@ -106,7 +113,13 @@ export function useStableAudio(src: string) {
     startLoadingTimer();
     log("source_initialized");
 
-    return clearLoadingTimer;
+    return () => {
+      clearLoadingTimer();
+      if (retryTaskRef.current !== null) {
+        window.clearTimeout(retryTaskRef.current);
+        retryTaskRef.current = null;
+      }
+    };
   }, [clearLoadingTimer, log, src, startLoadingTimer]);
 
   useEffect(() => {
@@ -214,7 +227,7 @@ export function useStableAudio(src: string) {
 
   const retry = useCallback(() => {
     const audio = audioRef.current;
-    if (!audio || !sourceRef.current) return;
+    if (!audio || !sourceRef.current || retryAttempts >= 2 || retryTaskRef.current !== null) return;
     const resumeAt = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
     audio.pause();
     restoreTimeRef.current = resumeAt;
@@ -223,10 +236,17 @@ export function useStableAudio(src: string) {
     setDuration(0);
     setBuffered(0);
     setStatus("loading");
-    audio.load();
-    startLoadingTimer();
-    log("manual_retry");
-  }, [log, startLoadingTimer]);
+    setRetryAttempts((attempts) => attempts + 1);
+    // Yield to the browser so the button press and navigation remain responsive
+    // before a slow WebView starts a new metadata request for the large MP3.
+    retryTaskRef.current = window.setTimeout(() => {
+      retryTaskRef.current = null;
+      if (audioRef.current !== audio || sourceRef.current !== src) return;
+      audio.load();
+      startLoadingTimer();
+      log("manual_retry");
+    }, 0);
+  }, [log, retryAttempts, src, startLoadingTimer]);
 
   const seek = useCallback((time: number) => {
     const audio = audioRef.current;
@@ -240,5 +260,5 @@ export function useStableAudio(src: string) {
     if (audio) audio.volume = volume;
   }, []);
 
-  return { audioRef, status, currentTime, duration, buffered, failure, togglePlayback, retry, seek, setVolume, log };
+  return { audioRef, status, currentTime, duration, buffered, failure, retryAttempts, togglePlayback, retry, seek, setVolume, log };
 }

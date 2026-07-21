@@ -46,6 +46,7 @@ export default function SongPlayer({
     currentTime: rawCurrentTime,
     duration: rawDuration,
     failure: audioFailure,
+    retryAttempts,
     togglePlayback,
     retry: retryAudio,
     seek,
@@ -141,6 +142,7 @@ export default function SongPlayer({
         ? "Audio is taking longer than expected. You can reload it."
         : "音频加载时间较长，可以尝试重新加载。"
       : "";
+  const retryExhausted = retryAttempts >= 2;
 
   return (
     <main className="song-player-page">
@@ -209,7 +211,14 @@ export default function SongPlayer({
                     : "你的浏览器不支持音频播放。"}
                 </audio>
                 {audioMessage && <p role="alert" className="audio-error">{audioMessage}</p>}
-                {(audioStatus === "error" || audioStatus === "stalled") && (
+                {retryExhausted && (audioStatus === "error" || audioStatus === "stalled") && (
+                  <p role="alert" className="audio-error">
+                    {language === "en"
+                      ? "Audio is still unavailable. You can keep browsing and try play again later."
+                      : "音频仍未就绪，你可以继续浏览，稍后再点播放。"}
+                  </p>
+                )}
+                {!retryExhausted && (audioStatus === "error" || audioStatus === "stalled") && (
                   <button className="audio-retry-button" type="button" onClick={retryAudio}>
                     {language === "en" ? "Reload audio" : "重新加载音频"}
                   </button>

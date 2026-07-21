@@ -1,36 +1,41 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- This versioned static asset intentionally replaces the disabled 3D renderer. */
 
+import { useState } from "react";
+
 export const ENABLE_3D_PROJECTOR = false;
 
 export default function StaticProjector({
-  isLit = false,
-  isDropTarget = false,
   className = "",
 }: {
-  isLit?: boolean;
-  isDropTarget?: boolean;
   className?: string;
 }) {
+  const [failed, setFailed] = useState(false);
   return (
     <span
-      className={`static-projector ${isLit ? "is-lit" : ""} ${isDropTarget ? "is-drop-target" : ""} ${className}`}
+      className={`static-projector ${className}`}
       aria-hidden="true"
       data-3d-enabled={ENABLE_3D_PROJECTOR ? "true" : "false"}
     >
-      <img
-        src="/music/projector/projector-static-v1.webp"
-        alt=""
-        width="1000"
-        height="760"
-        loading="lazy"
-        decoding="async"
-      />
+      {!failed ? (
+        <img
+          src="/music/projector/projector-static-v1.webp"
+          alt=""
+          width="1000"
+          height="760"
+          loading="eager"
+          decoding="async"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <span className="projector-fallback">Projector</span>
+      )}
       <style jsx>{`
         .static-projector {
-          position: absolute;
-          inset: 0;
+          position: relative;
           display: grid;
+          width: 100%;
+          aspect-ratio: 1000 / 760;
           place-items: center;
           pointer-events: none;
         }
@@ -39,20 +44,12 @@ export default function StaticProjector({
           width: 100%;
           height: 100%;
           object-fit: contain;
-          transition: filter 180ms ease, transform 180ms ease;
+          max-width: 100%;
         }
-
-        .static-projector.is-drop-target img {
-          filter: brightness(1.08) drop-shadow(0 0 8px rgba(170, 123, 63, 0.42));
-          transform: translateY(-2px);
-        }
-
-        .static-projector.is-lit img {
-          filter: brightness(0.68) saturate(0.82) contrast(1.02);
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .static-projector img { transition: none; }
+        .projector-fallback {
+          display: grid; width: 100%; height: 100%; place-items: center;
+          border: 1px dashed rgba(38, 73, 82, .35); border-radius: 12px;
+          background: #d8cbb8; color: #385c64; font-weight: 700;
         }
       `}</style>
     </span>
