@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "sync:songs": "node scripts/sync-published-songs.mjs",
+    "check:content": "node scripts/check-generated-songs.mjs",
     "start": "next start",
     "lint": "eslint"
   },

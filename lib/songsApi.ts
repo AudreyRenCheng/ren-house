@@ -5,18 +5,20 @@ export type ApiExtra = {
   id: string; type: "image" | "audio" | "video" | "text"; file_url?: string | null;
   title_zh?: string | null; title_en?: string | null; caption_zh?: string | null;
   caption_en?: string | null; recorded_at?: string | null; sort_order: number;
+  status?: "draft" | "published" | "hidden";
 };
 export type ApiSong = {
   id: string; slug: string; original_title: string; title_zh?: string | null;
   title_en?: string | null; language: LyricLanguage; completed_at: string;
   summary_zh?: string | null; summary_en?: string | null; lyrics_original: string;
   lyrics_zh: string; lyrics_en: string; cover_url?: string | null; audio_url?: string | null;
-  shelf_order: number; extras?: ApiExtra[];
+  shelf_order: number; status?: "draft" | "published" | "hidden"; extras?: ApiExtra[];
 };
 
 const lines = (value: string) => value.replace(/\r\n/g, "\n").split("\n");
 const browserMediaUrl = (value?: string | null) => {
   if (!value) return "";
+  if (value.startsWith("/") && !value.startsWith("//")) return value;
   try {
     const url = new URL(value);
     return url.protocol === "https:" || url.protocol === "http:" ? url.href : "";
@@ -97,4 +99,4 @@ export function mergeSongs(apiSongs: ApiSong[]): SongCollection {
 }
 
 export const fallbackSongs: SongCollection = mergeSongs([]);
-export const songsApiUrl = "/songs-api/songs";
+export const generatedSongsUrl = "/generated-data/songs.json";
