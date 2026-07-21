@@ -3,7 +3,7 @@ import { createRemoteJWKSet, errors, jwtVerify } from "jose";
 interface D1Result<T = unknown> { results?: T[]; success: boolean; }
 interface D1Statement { bind(...values: unknown[]): D1Statement; first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<D1Result<T>>; run(): Promise<D1Result>; }
 interface D1Database { prepare(query: string): D1Statement; batch(statements: D1Statement[]): Promise<D1Result[]>; }
-interface R2Object { body: ReadableStream; size?: number; httpMetadata?: { contentType?: string }; }
+interface R2Object { body: ReadableStream; size?: number; etag?: string; httpMetadata?: { contentType?: string }; }
 interface R2Bucket { put(key: string, value: ArrayBuffer, options?: { httpMetadata?: { contentType?: string }; customMetadata?: Record<string,string> }): Promise<unknown>; get(key: string): Promise<R2Object | null>; head(key: string): Promise<unknown | null>; delete(key: string): Promise<void>; }
 interface Env { SONGS_DB: D1Database; SONGS_MEDIA: R2Bucket; API_MODE?: "public" | "admin"; ENVIRONMENT?: string; DEV_BYPASS_AUTH?: string; ACCESS_TEAM_DOMAIN?: string; ACCESS_AUD?: string; ALLOWED_ORIGIN?: string; PUBLIC_MEDIA_BASE_URL?: string; }
 
@@ -185,18 +185,19 @@ async function router(request: Request, env: Env): Promise<Response> {
       "x-content-type-options": "nosniff",
     });
     if (object.size !== undefined) headers.set("content-length", String(object.size));
+    if (object.etag) headers.set("etag", object.etag);
     return new Response(object.body, { headers });
   }
   if (method === "GET" && path === "/api/songs") {
     const rows = (await env.SONGS_DB.prepare("SELECT * FROM songs WHERE status='published' ORDER BY shelf_order,id").all<Record<string,unknown>>()).results ?? [];
     const output = []; for (const row of rows) { const extras = (await env.SONGS_DB.prepare("SELECT * FROM extras WHERE song_id=? AND status='published' ORDER BY sort_order,id").bind(row.id).all<Record<string,unknown>>()).results ?? []; output.push(publicSong(request, env, row, extras)); }
-    return json({ songs: output });
+    return json({ songs: output }, 200, { "cache-control": "public, max-age=0, must-revalidate" });
   }
   const publicMatch = path.match(/^\/api\/songs\/([^/]+)$/);
   if (method === "GET" && publicMatch) {
     const row = await env.SONGS_DB.prepare("SELECT * FROM songs WHERE slug=? AND status='published'").bind(decodeURIComponent(publicMatch[1])).first<Record<string,unknown>>();
     if (!row) return fail("歌曲不存在", 404); const extras = (await env.SONGS_DB.prepare("SELECT * FROM extras WHERE song_id=? AND status='published' ORDER BY sort_order,id").bind(row.id).all<Record<string,unknown>>()).results ?? [];
-    return json({ song: publicSong(request, env, row, extras) });
+    return json({ song: publicSong(request, env, row, extras) }, 200, { "cache-control": "public, max-age=0, must-revalidate" });
   }
   if (!(await verifyAccess(request, env))) return fail("需要 Cloudflare Access 身份认证", 401);
   if (method === "POST" && path === "/api/admin/upload") return upload(request, env);

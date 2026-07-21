@@ -587,58 +587,60 @@ function HomeContent() {
     );
   }
 
-  if (screen === "musicRoom" && currentRoom === "room1") {
+  if ((screen === "musicRoom" || screen === "song") && currentRoom === "room1") {
     const intro = roomIntros[currentRoom];
 
     if (!intro) return null;
+    const musicRoomActive = screen === "musicRoom";
 
     return (
       <>
-        <MusicRoom
-          intro={intro}
-          language={language}
-          restoreScrollPosition={musicRoomScrollPosition}
-          restoreFocusSongId={
-            musicRoomScrollPosition !== null ? currentSong : null
-          }
-          onSelectSong={openSong}
-          onBack={() => {
-            setMusicRoomScrollPosition(null);
-            window.scrollTo({ top: 0, behavior: "auto" });
-
-            if (musicRoomSource === "quickEntry") {
-              setCurrentRoom(null);
-              setScreen("entrance");
-              return;
+        <div hidden={!musicRoomActive}>
+          <MusicRoom
+            intro={intro}
+            language={language}
+            restoreScrollPosition={musicRoomScrollPosition}
+            restoreFocusSongId={
+              musicRoomScrollPosition !== null ? currentSong : null
             }
+            onSelectSong={openSong}
+            active={musicRoomActive}
+            onBack={() => {
+              setMusicRoomScrollPosition(null);
+              window.scrollTo({ top: 0, behavior: "auto" });
 
-            setScreen("room");
-          }}
-        />
+              if (musicRoomSource === "quickEntry") {
+                setCurrentRoom(null);
+                setScreen("entrance");
+                return;
+              }
 
-        <LanguageSwitcher
-          language={language}
-          setLanguage={setMusicRoomLanguage}
-          theme={warmControlTheme}
-        />
-        <ContactInfo language={language} theme="music" />
-        <SoundToggle language={language} />
-      </>
-    );
-  }
+              setScreen("room");
+            }}
+          />
 
-  if (screen === "song" && currentSong) {
-    return (
-      <>
-        <SongPlayer
-          currentSong={currentSong}
-          onBack={() => setScreen("musicRoom")}
-          language={language}
-          setLanguage={setLanguage}
-          showLyricTranslation={showLyricTranslation}
-          setShowLyricTranslation={setShowLyricTranslation}
-        />
-        <SoundToggle language={language} />
+          <LanguageSwitcher
+            language={language}
+            setLanguage={setMusicRoomLanguage}
+            theme={warmControlTheme}
+          />
+          <ContactInfo language={language} theme="music" />
+          <SoundToggle language={language} />
+        </div>
+
+        {screen === "song" && currentSong && (
+          <>
+            <SongPlayer
+              currentSong={currentSong}
+              onBack={() => setScreen("musicRoom")}
+              language={language}
+              setLanguage={setLanguage}
+              showLyricTranslation={showLyricTranslation}
+              setShowLyricTranslation={setShowLyricTranslation}
+            />
+            <SoundToggle language={language} />
+          </>
+        )}
       </>
     );
   }

@@ -14,6 +14,7 @@ type MusicRoomProps = {
   restoreFocusSongId: SongId | null;
   onBack: () => void;
   onSelectSong: (songId: SongId) => void;
+  active: boolean;
 };
 
 export default function MusicRoom({
@@ -23,18 +24,20 @@ export default function MusicRoom({
   restoreFocusSongId,
   onBack,
   onSelectSong,
+  active,
 }: MusicRoomProps) {
   const { playUISound } = useSound();
   const shelfRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!active) return;
     const targetPosition = restoreScrollPosition ?? 0;
     const frame = window.requestAnimationFrame(() => {
       window.scrollTo({ top: targetPosition, behavior: "auto" });
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [restoreScrollPosition]);
+  }, [active, restoreScrollPosition]);
 
   function scrollToShelf() {
     const reduceMotion = window.matchMedia(
@@ -90,6 +93,7 @@ export default function MusicRoom({
           onSelectSong={onSelectSong}
           language={language}
           restoreFocusSongId={restoreFocusSongId}
+          active={active}
         />
       </div>
 

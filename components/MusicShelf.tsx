@@ -11,10 +11,12 @@ export default function MusicShelf({
   onSelectSong,
   language,
   restoreFocusSongId,
+  active,
 }: {
   onSelectSong: (songId: SongId) => void;
   language: SiteLanguage;
   restoreFocusSongId: SongId | null;
+  active: boolean;
 }) {
   const songs = useSongs();
   const { playUISound } = useSound();
@@ -23,14 +25,14 @@ export default function MusicShelf({
   );
 
   useEffect(() => {
-    if (!restoreFocusSongId) return;
+    if (!active || !restoreFocusSongId) return;
 
     const frame = window.requestAnimationFrame(() => {
       songButtonRefs.current[restoreFocusSongId]?.focus({ preventScroll: true });
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [restoreFocusSongId]);
+  }, [active, restoreFocusSongId]);
 
   function getSongTitle(songId: SongId) {
     const song = songs[songId];
@@ -71,8 +73,8 @@ export default function MusicShelf({
   }
 
   const songIds = Object.keys(songs) as SongId[];
-  const primarySongIds = songIds.slice(0, 3);
-  const secondarySongIds = songIds.slice(3, 6);
+  const primarySongIds = songIds.filter((_, index) => index < 3);
+  const secondarySongIds = songIds.filter((_, index) => index >= 3);
 
   function renderSongExhibit(songId: SongId) {
     const song = songs[songId];
@@ -123,6 +125,9 @@ export default function MusicShelf({
             sizes="(max-width: 760px) 190px, (max-width: 980px) 156px, 210px"
             onError={(event) => {
               event.currentTarget.style.display = "none";
+            }}
+            onLoad={(event) => {
+              event.currentTarget.style.display = "block";
             }}
           />
         </span>
@@ -178,7 +183,7 @@ export default function MusicShelf({
           >
             <div className="record-line secondary-record-line">
               {secondarySongIds.map(renderSongExhibit)}
-              {Array.from({ length: 3 - secondarySongIds.length }).map(
+              {Array.from({ length: Math.max(0, 3 - secondarySongIds.length) }).map(
                 (_, index) => (
                   <span
                     className={`future-work-slot future-work-${index + 1}`}
