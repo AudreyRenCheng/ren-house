@@ -97,4 +97,4 @@ export function mergeSongs(apiSongs: ApiSong[]): SongCollection {
 }
 
 export const fallbackSongs: SongCollection = mergeSongs([]);
-export const apiBaseUrl = (process.env.NEXT_PUBLIC_SONGS_API_URL ?? "").replace(/\/$/, "");
+export const songsApiUrl = "/songs-api/songs";
