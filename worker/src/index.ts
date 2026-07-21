@@ -200,6 +200,27 @@ async function router(request: Request, env: Env): Promise<Response> {
     return json({ song: publicSong(request, env, row, extras) }, 200, { "cache-control": "public, max-age=0, must-revalidate" });
   }
   if (!(await verifyAccess(request, env))) return fail("需要 Cloudflare Access 身份认证", 401);
+  if (method === "GET" && path === "/api/admin/analytics/regions") {
+    const regions = (await env.SONGS_DB.prepare(`
+      SELECT COALESCE(NULLIF(country, ''), 'Unknown') AS country,
+        COALESCE(NULLIF(region, ''), 'Unknown') AS region, COUNT(*) AS visits
+      FROM analytics_visits
+      WHERE datetime(visited_at) >= datetime('now', '-30 days')
+      GROUP BY country, region
+      ORDER BY visits DESC, country ASC, region ASC
+    `).all<Record<string, unknown>>()).results ?? [];
+    return json({ regions });
+  }
+  if (method === "GET" && path === "/api/admin/analytics/sources") {
+    const sources = (await env.SONGS_DB.prepare(`
+      SELECT source, COUNT(*) AS visits
+      FROM analytics_visits
+      WHERE datetime(visited_at) >= datetime('now', '-30 days')
+      GROUP BY source
+      ORDER BY visits DESC, source ASC
+    `).all<Record<string, unknown>>()).results ?? [];
+    return json({ sources });
+  }
   if (method === "POST" && path === "/api/admin/upload") return upload(request, env);
   if (method === "GET" && path === "/api/admin/songs") {
     const songs = (await env.SONGS_DB.prepare("SELECT * FROM songs ORDER BY shelf_order,id").all()).results ?? []; return json({ songs });

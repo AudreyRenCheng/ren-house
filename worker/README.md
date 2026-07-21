@@ -31,6 +31,8 @@ npx.cmd wrangler deploy --config wrangler.admin.toml
 
 No migration is needed for this split. Do not recreate D1/R2 and do not reapply migration merely to deploy the second Worker.
 
+For anonymous regional analytics, apply `migrations/0002_analytics_visits.sql` once to the existing `ren-house-db`. The migration only adds `analytics_visits` and its indexes; it does not alter the song tables. The admin deployment then exposes Access-protected `GET /api/admin/analytics/regions` and `GET /api/admin/analytics/sources` summaries for the most recent 30 days.
+
 ## Cloudflare Access
 
 Create a new self-hosted Access application for the entire admin Worker hostname, for example:

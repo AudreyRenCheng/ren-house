@@ -24,6 +24,7 @@ import { useSound } from "@/components/SoundProvider";
 import SoundToggle from "@/components/SoundToggle";
 import { roomIntros } from "@/data/roomIntros";
 import { SongsProvider } from "@/components/SongsProvider";
+import { trackVisitOnce } from "@/lib/trackVisit";
 
 const warmControlTheme = {
   color: "#5a321d",
@@ -654,6 +655,10 @@ export type SiteExperienceProps = {
 
 export default function SiteExperience({ source }: SiteExperienceProps) {
   void source;
+
+  useEffect(() => {
+    trackVisitOnce();
+  }, []);
 
   return <SongsProvider><HomeContent /></SongsProvider>;
 }
