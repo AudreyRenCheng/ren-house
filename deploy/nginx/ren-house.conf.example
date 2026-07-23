@@ -1,0 +1,49 @@
+server {
+    listen 80;
+    listen [::]:80;
+    server_name YOUR_HK_DOMAIN_OR_IP;
+
+    root /var/www/ren-house/current;
+    index index.html;
+    include /etc/nginx/mime.types;
+
+    # The Hong Kong static site intentionally exposes no administration surface.
+    location = /admin { return 404; }
+    location = /admin/ { return 404; }
+    location = /admin/song { return 404; }
+    location = /admin/song/ { return 404; }
+    location ^~ /admin/ { return 404; }
+    location ^~ /admin-api/ { return 404; }
+
+    # Analytics is sent by the browser directly to the dedicated Cloudflare
+    # Analytics Worker. Never proxy this route through the Hong Kong server.
+    location ^~ /songs-api/ { return 404; }
+    location ^~ /analytics-api/ { return 404; }
+
+    location ^~ /generated-data/ {
+        try_files $uri =404;
+        expires -1;
+        add_header Cache-Control "public, max-age=0, must-revalidate" always;
+        add_header X-Content-Type-Options "nosniff" always;
+    }
+
+    # Nginx serves static files with byte-range support, which permits seeking in
+    # MP3/M4A/WAV files without proxying Cloudflare Worker or R2.
+    location ^~ /generated-media/ {
+        try_files $uri =404;
+        expires 1y;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        add_header X-Content-Type-Options "nosniff" always;
+    }
+
+    location ^~ /_next/static/ {
+        try_files $uri =404;
+        expires 1y;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+    }
+
+    # output:"export" + trailingSlash:true produces directory index files.
+    location / {
+        try_files $uri $uri/ =404;
+    }
+}

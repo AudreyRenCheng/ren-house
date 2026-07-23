@@ -5,6 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "sync:songs": "node scripts/sync-published-songs.mjs",
+    "check:content": "node scripts/check-generated-songs.mjs",
+    "build:content": "npm run sync:songs && npm run check:content && npm run build",
+    "check:output": "node scripts/verify-static-output.mjs",
     "start": "next start",
     "lint": "eslint"
   },

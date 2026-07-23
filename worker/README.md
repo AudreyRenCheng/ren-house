@@ -31,7 +31,28 @@ npx.cmd wrangler deploy --config wrangler.admin.toml
 
 No migration is needed for this split. Do not recreate D1/R2 and do not reapply migration merely to deploy the second Worker.
 
-For anonymous regional analytics, apply `migrations/0002_analytics_visits.sql` once to the existing `ren-house-db`. The migration only adds `analytics_visits` and its indexes; it does not alter the song tables. The admin deployment then exposes Access-protected `GET /api/admin/analytics/regions` and `GET /api/admin/analytics/sources` summaries for the most recent 30 days.
+The original `migrations/0002_analytics_visits.sql` remains intact for historical Pages-only regional data. New dual-site reports use the additive `migrations/0003_visitor_analytics.sql`; it creates `analytics_event_records` and indexes without altering or dropping existing tables.
+
+### Analytics Worker
+
+`src/analytics.ts` is deployed separately as `rens-house-analytics` with `wrangler.analytics.toml`. It exposes only public `POST /api/events` and `OPTIONS`, accepts exact production Origins for Pages and both foundren hostnames, and binds the existing database as `ANALYTICS_DB`.
+
+Configure the HMAC key as a Worker secret; never put it in TOML or frontend code:
+
+```powershell
+npx.cmd wrangler secret put ANALYTICS_HMAC_SECRET --config wrangler.analytics.toml
+```
+
+Apply the new migration once, then deploy manually:
+
+```powershell
+npx.cmd wrangler d1 migrations apply ANALYTICS_DB --remote --config wrangler.analytics.toml
+npx.cmd wrangler deploy --config wrangler.analytics.toml
+```
+
+The scheduled trigger runs daily at 02:17 Asia/Shanghai and clears only `ip_address` values older than 90 days. It retains event rows and aggregate fields. This cleanup becomes automatic only after the Analytics Worker and cron trigger are deployed.
+
+The existing Admin Worker remains the only management-query surface. Its `/api/admin/analytics/*` routes are after jose Access validation and read the same D1 through `SONGS_DB`. The legacy table remains available through `/api/admin/analytics/legacy/regions` and `/api/admin/analytics/legacy/sources`.
 
 ## Cloudflare Access
 
@@ -49,26 +70,27 @@ On the downstream admin Worker Access application, keep the existing user policy
 
 ## Pages variables
 
-Configure the public build variable and the Pages Function runtime variable, then rebuild Pages:
+Configure these Pages Function runtime values/bindings; none are included in browser JavaScript:
 
 ```text
-NEXT_PUBLIC_SONGS_API_URL=https://rens-house-api.YOUR_SUBDOMAIN.workers.dev
+SONGS_API_URL=https://rens-house-api.YOUR_SUBDOMAIN.workers.dev
 ADMIN_API_URL=https://rens-house-admin-api.YOUR_SUBDOMAIN.workers.dev
+ANALYTICS_DB=ren-house-db (D1 binding)
 ```
 
-Keep `NEXT_PUBLIC_SONGS_API_URL`. Delete `NEXT_PUBLIC_ADMIN_API_URL`; browser code no longer reads it. `ADMIN_API_URL` is available only to the Pages Function and is not included in the static JavaScript bundle.
+Visitor song playback uses the synchronized `/generated-data/songs.json`; `SONGS_API_URL` remains only for the optional `/songs-api/songs` Pages Function. Do not configure `NEXT_PUBLIC_SONGS_API_URL` or `NEXT_PUBLIC_ADMIN_API_URL`.
 
 ## Same-origin Pages Function proxy
 
 The proxy entry is `functions/admin-api/[[path]].ts`. Browser requests such as `/admin-api/songs/123/publish` are mapped to `${ADMIN_API_URL}/api/admin/songs/123/publish`. It forwards method, query, streamed body, and Content-Type, including multipart uploads. It never forwards browser cookies and never logs the assertion. All responses use `no-store` cache headers.
 
-`public/_routes.json` limits Pages Functions invocations to `/admin-api/*`; other paths remain ordinary static assets. The root `functions/` directory is intentionally outside `out/`. With Pages Git integration, Cloudflare deploys it alongside the `output: "export"` contents, while Next continues producing static `/`, `/admin`, and `/admin/song` pages in `out/`.
+`public/_routes.json` limits Pages Functions invocations to `/admin-api/*`, `/songs-api/*`, and `/analytics-api/*`; generated song data and media remain ordinary static assets. The root `functions/` directory is intentionally outside `out/`.
 
 Pages deployment steps:
 
-1. Keep build command `npm run build` and output directory `out`.
-2. Add the runtime variable `ADMIN_API_URL` and retain `NEXT_PUBLIC_SONGS_API_URL`.
-3. Remove `NEXT_PUBLIC_ADMIN_API_URL`.
+1. Synchronize and validate published content before `npm run build`; keep output directory `out`.
+2. Add the runtime variables `SONGS_API_URL`, `ADMIN_API_URL`, and the `ANALYTICS_DB` D1 binding.
+3. Remove any obsolete `NEXT_PUBLIC_SONGS_API_URL` and `NEXT_PUBLIC_ADMIN_API_URL`.
 4. Extend the Pages Access application so both `/admin/*` and `/admin-api/*` are protected.
 5. Add the Linked App Token Service Auth policy to the admin Worker Access application, selecting the Pages application.
 6. Trigger the normal Pages Git deployment. Do not copy `functions/` into `out/` manually.
@@ -100,4 +122,4 @@ Generated keys are `covers/{songRef}/{uuid}.ext`, `audio/{songRef}/{uuid}.ext`, 
 
 With local D1/R2 and the development bypass, verify new draft, refresh persistence, edit, cover/audio preview, multiple extras, lyrics with blank translated lines, publish, and hide. Disable bypass and verify every write/upload returns 401. Check public endpoints exclude draft/hidden rows and non-published extras. Stop the Worker or use an invalid frontend API origin and confirm the original static songs remain visible.
 
-`analytics_events` reserves stable song/extra UUID relations for a later `POST /api/events` and the requested event names. It stores no names, emails, or raw IP addresses.
+`analytics_events` remains an unused compatibility table. New collection writes only `analytics_event_records`; no old rows are fabricated into IP, UV, device, session, or screen data.

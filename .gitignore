@@ -54,3 +54,8 @@ worker/.wrangler/
 worker/.codex-tmp/
 
 .codex-tmp/
+
+# Local deployment and test artifacts
+ren-house-out.zip
+worker/.codex-admin-test.stderr.log
+worker/.codex-admin-test.stdout.log

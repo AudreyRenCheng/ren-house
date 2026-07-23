@@ -1,0 +1,16 @@
+name = "rens-house-analytics"
+main = "src/analytics.ts"
+compatibility_date = "2026-07-20"
+
+[[d1_databases]]
+binding = "ANALYTICS_DB"
+database_name = "ren-house-db"
+database_id = "fd6f9452-d996-4e5c-a772-606b0f9ba336"
+migrations_dir = "migrations"
+
+[vars]
+ENVIRONMENT = "production"
+
+[triggers]
+crons = ["17 18 * * *"]
+

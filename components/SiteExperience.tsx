@@ -24,7 +24,7 @@ import { useSound } from "@/components/SoundProvider";
 import SoundToggle from "@/components/SoundToggle";
 import { roomIntros } from "@/data/roomIntros";
 import { SongsProvider } from "@/components/SongsProvider";
-import { trackVisitOnce } from "@/lib/trackVisit";
+import { trackPageViewOnce, trackScreenView } from "@/lib/analytics";
 
 const warmControlTheme = {
   color: "#5a321d",
@@ -57,6 +57,47 @@ function HomeContent() {
   const musicRoomLanguageScrollRef = useRef<number | null>(null);
   const [currentSong, setCurrentSong] = useState<SongId | null>(null);
   const [showLyricTranslation, setShowLyricTranslation] = useState(true);
+  const previousAnalyticsScreenRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    trackPageViewOnce();
+  }, []);
+
+  useEffect(() => {
+    let screenName: string;
+    let songId: string | undefined;
+
+    switch (screen) {
+      case "entrance":
+        screenName = "entrance";
+        break;
+      case "map":
+        screenName = "house_map";
+        break;
+      case "room":
+        if (!currentRoom) return;
+        screenName = `room:${currentRoom}`;
+        break;
+      case "musicRoom":
+        screenName = "music_room";
+        break;
+      case "song":
+        if (!currentSong) return;
+        screenName = "song";
+        songId = currentSong;
+        break;
+    }
+
+    // Include the song in the consecutive-screen key while keeping the
+    // normalized screen_name stable for reporting.
+    const consecutiveKey = songId ? `${screenName}:${songId}` : screenName;
+    if (previousAnalyticsScreenRef.current === consecutiveKey) return;
+
+    previousAnalyticsScreenRef.current = consecutiveKey;
+    // The initial entrance screen_view is emitted only here. page_view is a
+    // separate full-document-load event.
+    trackScreenView(screenName, songId);
+  }, [currentRoom, currentSong, screen]);
 
   useEffect(() => {
     const resetTranslation = window.setTimeout(() => {
@@ -655,10 +696,6 @@ export type SiteExperienceProps = {
 
 export default function SiteExperience({ source }: SiteExperienceProps) {
   void source;
-
-  useEffect(() => {
-    trackVisitOnce();
-  }, []);
 
   return <SongsProvider><HomeContent /></SongsProvider>;
 }

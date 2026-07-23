@@ -23,6 +23,56 @@ const now = () => new Date().toISOString();
 const normalizeLines = (value: unknown) => text(value).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 const safeSlug = (value: unknown) => text(value).trim().toLowerCase();
 
+type AnalyticsQuery = {
+  startDate: string;
+  endDate: string;
+  siteRegion: "all" | "global" | "hk";
+  includeBots: boolean;
+  page: number;
+  pageSize: number;
+};
+
+const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+function beijingDate(dayOffset = 0) {
+  return new Date(Date.now() + 8 * 60 * 60 * 1000 + dayOffset * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+}
+function analyticsQuery(url: URL): AnalyticsQuery | Response {
+  const startDate = url.searchParams.get("start_date") || beijingDate(-6);
+  const endDate = url.searchParams.get("end_date") || beijingDate();
+  const siteRegion = url.searchParams.get("site_region") || "all";
+  const includeBots = url.searchParams.get("include_bots") === "true";
+  const page = Math.max(1, integer(url.searchParams.get("page")) || 1);
+  const pageSize = Math.min(200, Math.max(1, integer(url.searchParams.get("page_size")) || 50));
+  if (!datePattern.test(startDate) || !datePattern.test(endDate) || startDate > endDate) {
+    return fail("统计日期范围无效", 400);
+  }
+  if (!["all", "global", "hk"].includes(siteRegion)) return fail("站点筛选无效", 400);
+  return { startDate, endDate, siteRegion: siteRegion as AnalyticsQuery["siteRegion"], includeBots, page, pageSize };
+}
+function analyticsWhere(options: AnalyticsQuery, alias = "") {
+  const prefix = alias ? `${alias}.` : "";
+  const clauses = [`${prefix}beijing_date >= ?`, `${prefix}beijing_date <= ?`];
+  const values: unknown[] = [options.startDate, options.endDate];
+  if (options.siteRegion !== "all") {
+    clauses.push(`${prefix}site_region = ?`);
+    values.push(options.siteRegion);
+  }
+  if (!options.includeBots) clauses.push(`${prefix}is_bot = 0`);
+  return { sql: clauses.join(" AND "), values };
+}
+function maskIp(value: unknown) {
+  const ip = text(value);
+  if (!ip) return "";
+  if (ip.includes(".")) {
+    const parts = ip.split(".");
+    return parts.length === 4 ? `${parts[0]}.${parts[1]}.${parts[2]}.*` : ip;
+  }
+  if (ip.includes(":")) return `${ip.split(":").filter(Boolean).slice(0, 3).join(":")}::****`;
+  return "****";
+}
+
 function cors(env: Env) {
   return {
     "access-control-allow-origin": env.ALLOWED_ORIGIN || "",
@@ -200,7 +250,7 @@ async function router(request: Request, env: Env): Promise<Response> {
     return json({ song: publicSong(request, env, row, extras) }, 200, { "cache-control": "public, max-age=0, must-revalidate" });
   }
   if (!(await verifyAccess(request, env))) return fail("需要 Cloudflare Access 身份认证", 401);
-  if (method === "GET" && path === "/api/admin/analytics/regions") {
+  if (method === "GET" && path === "/api/admin/analytics/legacy/regions") {
     const regions = (await env.SONGS_DB.prepare(`
       SELECT COALESCE(NULLIF(country, ''), 'Unknown') AS country,
         COALESCE(NULLIF(region, ''), 'Unknown') AS region, COUNT(*) AS visits
@@ -211,7 +261,7 @@ async function router(request: Request, env: Env): Promise<Response> {
     `).all<Record<string, unknown>>()).results ?? [];
     return json({ regions });
   }
-  if (method === "GET" && path === "/api/admin/analytics/sources") {
+  if (method === "GET" && path === "/api/admin/analytics/legacy/sources") {
     const sources = (await env.SONGS_DB.prepare(`
       SELECT source, COUNT(*) AS visits
       FROM analytics_visits
@@ -220,6 +270,121 @@ async function router(request: Request, env: Env): Promise<Response> {
       ORDER BY visits DESC, source ASC
     `).all<Record<string, unknown>>()).results ?? [];
     return json({ sources });
+  }
+  if (method === "GET" && path.startsWith("/api/admin/analytics/")) {
+    const options = analyticsQuery(url);
+    if (options instanceof Response) return options;
+    const where = analyticsWhere(options);
+    const metrics = `
+      SUM(CASE WHEN event_type='page_view' THEN 1 ELSE 0 END) AS pv,
+      COUNT(DISTINCT daily_visitor_hash) AS uv,
+      COUNT(DISTINCT session_id) AS visits,
+      SUM(CASE WHEN event_type='screen_view' THEN 1 ELSE 0 END) AS screen_views
+    `;
+
+    if (path === "/api/admin/analytics/summary") {
+      const summaryOptions = { ...options, startDate: beijingDate(-1), endDate: beijingDate() };
+      const summaryWhere = analyticsWhere(summaryOptions);
+      const rows = (await env.SONGS_DB.prepare(`
+        SELECT beijing_date AS date, ${metrics}
+        FROM analytics_event_records
+        WHERE ${summaryWhere.sql}
+        GROUP BY beijing_date
+      `).bind(...summaryWhere.values).all<Record<string, unknown>>()).results ?? [];
+      const byDate = new Map(rows.map((row) => [String(row.date), row]));
+      const today = byDate.get(beijingDate()) ?? {};
+      const yesterday = byDate.get(beijingDate(-1)) ?? {};
+      return json({
+        today_pv: integer(today.pv), today_uv: integer(today.uv),
+        today_visits: integer(today.visits), today_screen_views: integer(today.screen_views),
+        yesterday_pv: integer(yesterday.pv), yesterday_uv: integer(yesterday.uv),
+        yesterday_visits: integer(yesterday.visits), yesterday_screen_views: integer(yesterday.screen_views),
+      });
+    }
+    if (path === "/api/admin/analytics/daily") {
+      const daily = (await env.SONGS_DB.prepare(`
+        SELECT beijing_date AS date, ${metrics}
+        FROM analytics_event_records
+        WHERE ${where.sql}
+        GROUP BY beijing_date
+        ORDER BY beijing_date ASC
+      `).bind(...where.values).all<Record<string, unknown>>()).results ?? [];
+      return json({ daily });
+    }
+    if (path === "/api/admin/analytics/sources") {
+      const sources = (await env.SONGS_DB.prepare(`
+        SELECT source, ${metrics}
+        FROM analytics_event_records
+        WHERE ${where.sql}
+        GROUP BY source
+        ORDER BY pv DESC, source ASC
+      `).bind(...where.values).all<Record<string, unknown>>()).results ?? [];
+      return json({ sources });
+    }
+    if (path === "/api/admin/analytics/devices") {
+      const devices = (await env.SONGS_DB.prepare(`
+        SELECT device_type, ${metrics}
+        FROM analytics_event_records
+        WHERE ${where.sql}
+        GROUP BY device_type
+        ORDER BY pv DESC, device_type ASC
+      `).bind(...where.values).all<Record<string, unknown>>()).results ?? [];
+      return json({ devices });
+    }
+    if (path === "/api/admin/analytics/screens") {
+      const screens = (await env.SONGS_DB.prepare(`
+        SELECT screen_name, COUNT(*) AS views,
+          COUNT(DISTINCT daily_visitor_hash) AS unique_visitors
+        FROM analytics_event_records
+        WHERE ${where.sql} AND event_type='screen_view'
+        GROUP BY screen_name
+        ORDER BY views DESC, screen_name ASC
+      `).bind(...where.values).all<Record<string, unknown>>()).results ?? [];
+      return json({ screens });
+    }
+    if (path === "/api/admin/analytics/songs") {
+      const songs = (await env.SONGS_DB.prepare(`
+        SELECT e.song_id, COALESCE(NULLIF(s.original_title,''), e.song_id) AS title,
+          COUNT(*) AS views, COUNT(DISTINCT e.daily_visitor_hash) AS unique_visitors
+        FROM analytics_event_records e
+        LEFT JOIN songs s ON s.id=e.song_id
+        WHERE ${analyticsWhere(options, "e").sql}
+          AND e.event_type='screen_view' AND e.screen_name='song' AND e.song_id IS NOT NULL
+        GROUP BY e.song_id, title
+        ORDER BY views DESC, e.song_id ASC
+      `).bind(...analyticsWhere(options, "e").values).all<Record<string, unknown>>()).results ?? [];
+      return json({ songs });
+    }
+    if (path === "/api/admin/analytics/ips") {
+      const offset = (options.page - 1) * options.pageSize;
+      const totalRow = await env.SONGS_DB.prepare(`
+        SELECT COUNT(*) AS total FROM analytics_event_records WHERE ${where.sql} AND ip_address IS NOT NULL
+      `).bind(...where.values).first<Record<string, unknown>>();
+      const rows = (await env.SONGS_DB.prepare(`
+        SELECT occurred_at,beijing_date,ip_address,country,region,source,device_type,
+          event_type,screen_name,site_region,hostname
+        FROM analytics_event_records
+        WHERE ${where.sql} AND ip_address IS NOT NULL
+        ORDER BY occurred_at DESC
+        LIMIT ? OFFSET ?
+      `).bind(...where.values, options.pageSize, offset).all<Record<string, unknown>>()).results ?? [];
+      const total = integer(totalRow?.total);
+      return json({
+        ips: {
+          rows: rows.map((row) => ({
+            ...row,
+            masked_ip: maskIp(row.ip_address),
+            full_ip: row.ip_address,
+            ip_address: undefined,
+          })),
+          page: options.page,
+          page_size: options.pageSize,
+          total,
+          total_pages: Math.ceil(total / options.pageSize),
+        },
+      });
+    }
+    return fail("统计接口不存在", 404);
   }
   if (method === "POST" && path === "/api/admin/upload") return upload(request, env);
   if (method === "GET" && path === "/api/admin/songs") {

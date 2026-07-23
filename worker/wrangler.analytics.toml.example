@@ -1,0 +1,22 @@
+name = "rens-house-analytics"
+main = "src/analytics.ts"
+compatibility_date = "2026-07-20"
+
+[[d1_databases]]
+binding = "ANALYTICS_DB"
+database_name = "ren-house-db"
+database_id = "REPLACE_WITH_EXISTING_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+[vars]
+ENVIRONMENT = "production"
+# For local development only, set ENVIRONMENT = "development" and list exact
+# origins, separated by commas. Do not include these values in production.
+# DEVELOPMENT_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000"
+# DEV_ALLOW_MISSING_ORIGIN = "false"
+
+# Runs daily at 02:17 Asia/Shanghai. It clears plaintext IP addresses older
+# than 90 days while retaining event rows and aggregate-compatible fields.
+[triggers]
+crons = ["17 18 * * *"]
+
