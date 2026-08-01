@@ -59,7 +59,7 @@ Generated `public/generated-*` directories are deployment inputs. Decide whether
 Set the same public build value for the shared artifact:
 
 ```text
-NEXT_PUBLIC_ANALYTICS_API_URL=https://rens-house-analytics.YOUR_SUBDOMAIN.workers.dev
+NEXT_PUBLIC_ANALYTICS_API_URL=https://analytics.foundren.win
 ```
 
 Browsers on both sites POST directly to this Worker. The Worker maps exact Origins server-side:
