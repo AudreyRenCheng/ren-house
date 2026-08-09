@@ -76,7 +76,7 @@ export type Song = {
   slug?: string;
   shelfOrder?: number;
   title: SongTitle;
-  completedDate: string;
+  completedDate?: string;
   description: LocalizedText;
   cover: string;
   audio: string;

@@ -26,9 +26,9 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full antialiased">
       <head>
-        <meta property="og:image" content="/covers/song1.png" />
+        <meta property="og:image" content="/music/fly-to-you-just-to-you/cover.png" />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:image" content="/covers/song1.png" />
+        <meta name="twitter:image" content="/music/fly-to-you-just-to-you/cover.png" />
       </head>
       <body className="min-h-full flex flex-col">
         <SoundProvider>{children}</SoundProvider>

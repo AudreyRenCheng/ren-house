@@ -193,7 +193,7 @@ export default function MusicShelf({
         }}
         className={`song-exhibit variant-${(index % 3) + 1}`}
         type="button"
-        aria-label={`${songTitle}. ${song.completedDate}`}
+        aria-label={song.completedDate ? `${songTitle}. ${song.completedDate}` : songTitle}
         onClick={() => {
           playUISound("open");
           onSelectSong(songId);
@@ -208,9 +208,9 @@ export default function MusicShelf({
           style={boatLabelStyle}
           aria-hidden="true"
         >
-          <span className="boat-sail">
+          {song.completedDate && <span className="boat-sail">
             <span>{song.completedDate}</span>
-          </span>
+          </span>}
           <span className="boat-hull">
             <strong>{boatTitles.primary}</strong>
             {boatTitles.secondary && (

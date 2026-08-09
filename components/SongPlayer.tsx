@@ -117,27 +117,14 @@ export default function SongPlayer({
       : `${title.original} (${translatedTitle})`;
   }
 
-  function shouldShowLineTranslation(
-    lineLanguage: "zh" | "en" | "mixed",
-    currentLanguage: SiteLanguage
-  ) {
-    if (!showLyricTranslation) return false;
-    if (lineLanguage === "mixed") return true;
-    return lineLanguage !== currentLanguage;
-  }
-
   const songTitle = getSongTitle(song, language);
   const translatedSongTitle =
     song.title.originalLanguage === language
       ? null
       : song.title.translation[language] ?? null;
-  const hasTranslatableLyrics = song.lyrics.lines.some((line) => {
-    const translatedLine = line.translation?.[language];
-    return Boolean(
-      translatedLine &&
-        (line.language === "mixed" || line.language !== language)
-    );
-  });
+  const hasTranslatableLyrics = song.lyrics.lines.some(
+    (line) => line.translation && Object.values(line.translation).some(Boolean)
+  );
 
   return (
     <main className="song-player-page">
@@ -347,10 +334,10 @@ export default function SongPlayer({
                     >
                       {showLyricTranslation
                         ? language === "en"
-                          ? "Original only"
-                          : "只看原词"
+                          ? "Current language only"
+                          : "只看当前语言"
                         : language === "en"
-                          ? "Show translation"
+                          ? "Show original"
                           : "显示翻译"}
                     </button>
                   )}
@@ -358,19 +345,24 @@ export default function SongPlayer({
 
                 <div className="lyrics-content">
                   {song.lyrics.lines.map((line, index) => {
-                    const translatedLine = line.translation?.[language];
-                    const shouldShowTranslation =
-                      translatedLine &&
-                      shouldShowLineTranslation(line.language, language);
+                    const localizedLine = line.translation?.[language];
+                    const primaryLine =
+                      line.language === language || !localizedLine
+                        ? line.original
+                        : localizedLine;
+                    const alternateLine =
+                      line.language === language
+                        ? line.translation?.[language === "zh" ? "en" : "zh"]
+                        : line.original;
 
                     return (
                       <div key={`${line.original}-${index}`} className="lyric-line">
-                        <p className="original-line">{line.original}</p>
-                        {shouldShowTranslation && (
+                        <p className="original-line">{primaryLine}</p>
+                        {showLyricTranslation && alternateLine && (
                           <p className="translated-line">
                             {language === "zh"
-                              ? `（${translatedLine}）`
-                              : `(${translatedLine})`}
+                              ? `（${alternateLine}）`
+                              : `(${alternateLine})`}
                           </p>
                         )}
                       </div>
@@ -388,7 +380,7 @@ export default function SongPlayer({
           </section>
         </div>
 
-        <section className="memory-gallery" aria-labelledby="memory-title">
+        {Boolean(song.memories?.length) && <section className="memory-gallery" aria-labelledby="memory-title">
           <header className="memory-heading">
             <p>{language === "en" ? "Song archive" : "歌曲档案"}</p>
             <h2 id="memory-title">
@@ -401,7 +393,7 @@ export default function SongPlayer({
             </span>
           </header>
           <MemoryProjector memories={song.memories} language={language} />
-        </section>
+        </section>}
       </section>
 
       <LanguageSwitcher
@@ -848,6 +840,7 @@ export default function SongPlayer({
           font-family: var(--font-display);
           font-size: 18px;
           line-height: 1.7;
+          white-space: pre-wrap;
         }
 
         .translated-line {
@@ -855,6 +848,7 @@ export default function SongPlayer({
           color: #667069;
           font-size: 14px;
           line-height: 1.65;
+          white-space: pre-wrap;
         }
 
         .reader-footer {
