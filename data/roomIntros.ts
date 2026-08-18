@@ -27,7 +27,7 @@ export const roomIntros: Partial<Record<RoomId, RoomIntroData>> = {
         "我已经写下了一些歌，也还会继续往前写。下一首会是什么样，我暂时说不准，不过我想，这大概就是创作里好玩的地方。",
       ],
     },
-    photoSrc: "/images/music-room/ren-cheng-portrait.jpg",
+    photoSrc: "/images/music-room/ren-cheng-portrait.webp",
     photoAlt: {
       en: "Portrait of Ren Cheng in the Music Room",
       zh: "程仁在音乐房间中的人物照片",

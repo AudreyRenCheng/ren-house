@@ -15,7 +15,7 @@ export const songs: Record<SongId, Song> = {
       zh: "希望小鸟能为你捎去快乐。",
       en: "I hope a little bird can carry some happiness to you.",
     },
-    cover: "/music/fly-to-you-just-to-you/cover.png",
+    cover: "/music/fly-to-you-just-to-you/cover.webp",
     audio: "/music/fly-to-you-just-to-you/audio.mp3",
     lyrics: {
       language: "zh",
