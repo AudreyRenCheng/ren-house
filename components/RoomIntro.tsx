@@ -187,8 +187,9 @@ export default function RoomIntro({
           border-bottom-width: 50px;
           border-radius: 4px;
           background-color: #d9c49e;
-          background-position: center 28%;
-          background-size: cover;
+          background-position: 64% 34%;
+          background-repeat: no-repeat;
+          background-size: 112% auto;
           box-shadow:
             18px 24px 44px rgba(36, 70, 77, 0.24),
             inset 3px 3px 0 rgba(197, 231, 235, 0.32),

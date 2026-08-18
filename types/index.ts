@@ -64,6 +64,7 @@ export type LyricLine = {
   original: string;
   language: LyricLanguage;
   translation?: Partial<LocalizedText>;
+  startsStanza?: boolean;
 };
 
 export type Lyrics = {

@@ -101,7 +101,7 @@ function HomeContent() {
 
   useEffect(() => {
     const resetTranslation = window.setTimeout(() => {
-      setShowLyricTranslation(true);
+      setShowLyricTranslation(language === "en");
     }, 0);
 
     return () => window.clearTimeout(resetTranslation);

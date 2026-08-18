@@ -127,7 +127,7 @@ export default function SongPlayer({
   );
 
   return (
-    <main className="song-player-page">
+    <main className={`song-player-page language-${language}`}>
       <button
         className="house-control house-control--top-left back-link"
         type="button"
@@ -334,10 +334,10 @@ export default function SongPlayer({
                     >
                       {showLyricTranslation
                         ? language === "en"
-                          ? "Current language only"
-                          : "只看当前语言"
+                          ? "Original only"
+                          : "只看原词"
                         : language === "en"
-                          ? "Show original"
+                          ? "Show translation"
                           : "显示翻译"}
                     </button>
                   )}
@@ -345,24 +345,22 @@ export default function SongPlayer({
 
                 <div className="lyrics-content">
                   {song.lyrics.lines.map((line, index) => {
-                    const localizedLine = line.translation?.[language];
-                    const primaryLine =
-                      line.language === language || !localizedLine
-                        ? line.original
-                        : localizedLine;
-                    const alternateLine =
+                    const translatedLine =
                       line.language === language
-                        ? line.translation?.[language === "zh" ? "en" : "zh"]
-                        : line.original;
+                        ? undefined
+                        : line.translation?.[language];
 
                     return (
-                      <div key={`${line.original}-${index}`} className="lyric-line">
-                        <p className="original-line">{primaryLine}</p>
-                        {showLyricTranslation && alternateLine && (
+                      <div
+                        key={`${line.original}-${index}`}
+                        className={`lyric-line ${line.startsStanza ? "starts-stanza" : ""}`}
+                      >
+                        <p className="original-line">{line.original}</p>
+                        {showLyricTranslation && translatedLine && (
                           <p className="translated-line">
                             {language === "zh"
-                              ? `（${alternateLine}）`
-                              : `(${alternateLine})`}
+                              ? `（${translatedLine}）`
+                              : `(${translatedLine})`}
                           </p>
                         )}
                       </div>
@@ -820,18 +818,11 @@ export default function SongPlayer({
 
         .lyric-line {
           position: relative;
-          margin: 0 0 23px;
-          padding-left: 18px;
+          margin: 0 0 4px;
         }
 
-        .lyric-line::before {
-          content: "";
-          position: absolute;
-          top: 0.76em;
-          left: 0;
-          width: 6px;
-          height: 1px;
-          background: var(--med-terracotta);
+        .lyric-line.starts-stanza {
+          margin-top: 30px;
         }
 
         .original-line {
@@ -839,16 +830,24 @@ export default function SongPlayer({
           color: #29464b;
           font-family: var(--font-display);
           font-size: 18px;
-          line-height: 1.7;
+          line-height: 1.45;
           white-space: pre-wrap;
         }
 
         .translated-line {
-          margin: 5px 0 0;
+          margin: 3px 0 0;
           color: #667069;
           font-size: 14px;
-          line-height: 1.65;
+          line-height: 1.45;
           white-space: pre-wrap;
+        }
+
+        .song-player-page.language-en .original-line {
+          font-size: 14px;
+        }
+
+        .song-player-page.language-en .translated-line {
+          font-size: 18px;
         }
 
         .reader-footer {
@@ -996,6 +995,8 @@ export default function SongPlayer({
           .lyrics-header { flex-direction: column; align-items: stretch; }
           .translation-button { width: fit-content; }
           .original-line { font-size: 17px; }
+          .song-player-page.language-en .original-line { font-size: 14px; }
+          .song-player-page.language-en .translated-line { font-size: 17px; }
 
           .memory-gallery { padding: 22px 12px 16px; }
           .memory-gallery::before { right: 16px; left: 16px; }
